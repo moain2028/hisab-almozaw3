@@ -21,19 +21,29 @@ class ProductsScreen extends StatelessWidget {
       builder: (ctx) => AlertDialog(
         title: Text(p == null ? 'صنف جديد' : 'تعديل ${p.name}'),
         content: SingleChildScrollView(
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            TextField(controller: name, autofocus: p == null, decoration: const InputDecoration(labelText: 'اسم الصنف (زبادي، حقين...)')),
-            const SizedBox(height: 10),
-            TextField(controller: unit, decoration: const InputDecoration(labelText: 'الوحدة (كرتون، طبق، حبة)')),
-            const SizedBox(height: 10),
-            NumberField(controller: sell, label: 'سعر البيع للبقالة'),
-            const SizedBox(height: 10),
-            NumberField(controller: cost, label: 'سعر الشراء من التاجر'),
-            if (p != null) ...[
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: name,
+                autofocus: p == null,
+                decoration: const InputDecoration(labelText: 'اسم الصنف (زبادي، حقين...)'),
+              ),
               const SizedBox(height: 10),
-              const Text('تغيير السعر لا يغيّر الحسابات القديمة.', style: TextStyle(fontSize: 12.5)),
+              TextField(
+                controller: unit,
+                decoration: const InputDecoration(labelText: 'الوحدة (كرتون، طبق، حبة)'),
+              ),
+              const SizedBox(height: 10),
+              NumberField(controller: sell, label: 'سعر البيع للبقالة'),
+              const SizedBox(height: 10),
+              NumberField(controller: cost, label: 'سعر الشراء من التاجر'),
+              if (p != null) ...[
+                const SizedBox(height: 10),
+                const Text('تغيير السعر لا يغيّر الحسابات القديمة.', style: TextStyle(fontSize: 12.5)),
+              ],
             ],
-          ]),
+          ),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
@@ -89,7 +99,10 @@ class ProductsScreen extends StatelessWidget {
                 if (list.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(6, 0, 6, 6),
-                    child: Text('اسحب ⠿ لتغيير الترتيب في شاشة العطاء', style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13)),
+                    child: Text(
+                      'اسحب ⠿ لتغيير الترتيب في شاشة العطاء',
+                      style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13),
+                    ),
                   ),
                 ReorderableListView(
                   shrinkWrap: true,
@@ -108,9 +121,10 @@ class ProductsScreen extends StatelessWidget {
                         child: ListTile(
                           onTap: () => _edit(context, list[i]),
                           leading: ReorderableDragStartListener(index: i, child: const Icon(Icons.drag_indicator)),
-                          title: Text(list[i].name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+                          title: Text(list[i].name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17)),
                           subtitle: Text(
-                              'بيع ${money(list[i].sellPrice)} · شراء ${money(list[i].costPrice)} · ربح ${money(list[i].margin)} / ${list[i].unit}'),
+                            'بيع ${money(list[i].sellPrice)} · شراء ${money(list[i].costPrice)} · ربح ${money(list[i].margin)} / ${list[i].unit}',
+                          ),
                           trailing: IconButton(
                             icon: const Icon(Icons.delete_outline),
                             onPressed: () async {

@@ -43,89 +43,103 @@ class _TodayScreenState extends State<TodayScreen> {
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.only(bottom: 24),
-        children: [
-          const DayBar(),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: _HeroCard(summary: s, shopsCount: shops.length),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
-            child: Row(children: [
-              Expanded(
-                child: StatBox(
-                  label: 'استلام من التاجر',
-                  value: s.picked,
-                  icon: Icons.local_shipping_outlined,
-                  color: cs.tertiary,
-                  onTap: () => _pickup(context, store),
-                  sub: s.picked == 0 ? 'اضغط للتسجيل' : null,
+      // CustomScrollView: الرأس ثابت، وقائمة البقالات تُبنى بكسل (فقط الظاهر على الشاشة)
+      body: CustomScrollView(
+        slivers: [
+          SliverList.list(
+            children: [
+              const DayBar(),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: _HeroCard(summary: s, shopsCount: shops.length),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: StatBox(
+                        label: 'استلام من التاجر',
+                        value: s.picked,
+                        icon: Icons.local_shipping_outlined,
+                        color: cs.tertiary,
+                        onTap: () => _pickup(context, store),
+                        sub: s.picked == 0 ? 'اضغط للتسجيل' : null,
+                      ),
+                    ),
+                    Expanded(
+                      child: StatBox(
+                        label: 'المصاريف',
+                        value: s.expenses,
+                        icon: Icons.local_gas_station_outlined,
+                        color: AppColors.warn,
+                        onTap: () => _addExpense(context, store),
+                        sub: s.expenses == 0 ? 'اضغط للإضافة' : null,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              Expanded(
-                child: StatBox(
-                  label: 'المصاريف',
-                  value: s.expenses,
-                  icon: Icons.local_gas_station_outlined,
-                  color: AppColors.warn,
-                  onTap: () => _addExpense(context, store),
-                  sub: s.expenses == 0 ? 'اضغط للإضافة' : null,
+              if (store.products.isNotEmpty && s.picked > 0) _StockCard(rows: store.stockOf()),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+                child: SegmentedButton<bool>(
+                  style: SegmentedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(50),
+                    textStyle: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700),
+                  ),
+                  segments: [
+                    ButtonSegment(
+                      value: false,
+                      icon: const Icon(Icons.wb_sunny_outlined),
+                      label: Text('العطاء (${s.deliveredShops.length}/${shops.length})'),
+                    ),
+                    ButtonSegment(
+                      value: true,
+                      icon: const Icon(Icons.nightlight_outlined),
+                      label: Text('التحصيل (${s.paidShops.length})'),
+                    ),
+                  ],
+                  selected: {collectMode},
+                  onSelectionChanged: (v) => setState(() => collectMode = v.first),
                 ),
               ),
-            ]),
-          ),
-          if (store.products.isNotEmpty && s.picked > 0) _StockCard(rows: store.stockOf()),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
-            child: SegmentedButton<bool>(
-              style: SegmentedButton.styleFrom(
-                minimumSize: const Size.fromHeight(50),
-                textStyle: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w800),
-              ),
-              segments: [
-                ButtonSegment(
-                  value: false,
-                  icon: const Icon(Icons.wb_sunny_outlined),
-                  label: Text('العطاء (${s.deliveredShops.length}/${shops.length})'),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(18, 4, 18, 4),
+                child: Text(
+                  collectMode
+                      ? 'اضغط على البقالة لتسجيل ما دفعه، ويظهر لك الباقي عنده.'
+                      : 'اضغط على البقالة لتسجيل ما أعطيته اليوم.',
+                  style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13),
                 ),
-                ButtonSegment(
-                  value: true,
-                  icon: const Icon(Icons.nightlight_outlined),
-                  label: Text('التحصيل (${s.paidShops.length})'),
-                ),
-              ],
-              selected: {collectMode},
-              onSelectionChanged: (v) => setState(() => collectMode = v.first),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(18, 4, 18, 4),
-            child: Text(
-              collectMode
-                  ? 'اضغط على البقالة لتسجيل ما دفعه، ويظهر لك الباقي عنده.'
-                  : 'اضغط على البقالة لتسجيل ما أعطيته اليوم.',
-              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13),
-            ),
-          ),
-          if (shops.isEmpty)
-            EmptyState(
-              icon: Icons.storefront_outlined,
-              text: 'ابدأ بإضافة البقالات التي توزع عليها',
-              action: FilledButton.icon(
-                onPressed: () => openShopForm(context),
-                icon: const Icon(Icons.add),
-                label: const Text('إضافة بقالة'),
               ),
+              if (shops.isEmpty)
+                EmptyState(
+                  icon: Icons.storefront_outlined,
+                  text: 'ابدأ بإضافة البقالات التي توزع عليها',
+                  action: FilledButton.icon(
+                    onPressed: () => openShopForm(context),
+                    icon: const Icon(Icons.add),
+                    label: const Text('إضافة بقالة'),
+                  ),
+                ),
+            ],
+          ),
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
+            sliver: SliverList.builder(
+              itemCount: shops.length,
+              itemBuilder: (_, i) {
+                final shop = shops[i];
+                // RepaintBoundary: إعادة رسم بطاقة لا تعيد رسم جاراتها
+                return RepaintBoundary(
+                  child: collectMode
+                      ? _CollectTile(key: ValueKey('c${shop.id}'), shop: shop, day: store.dayOf(shop))
+                      : _DeliverTile(key: ValueKey('d${shop.id}'), shop: shop, day: store.dayOf(shop)),
+                );
+              },
             ),
-          for (final shop in shops)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: collectMode
-                  ? _CollectTile(shop: shop, day: store.dayOf(shop))
-                  : _DeliverTile(shop: shop, day: store.dayOf(shop)),
-            ),
+          ),
         ],
       ),
     );
@@ -139,12 +153,8 @@ class _TodayScreenState extends State<TodayScreen> {
       return;
     }
     // اقتراح: كميات آخر استلام
-    final prev = store.traderTxs.where((t) => t.type == TraderTxType.pickup && t.traderId == trader.id && t.day.compareTo(store.day) < 0).toList()
-      ..sort((a, b) => b.day.compareTo(a.day));
-    Map<String, double>? prefill;
-    if (prev.isNotEmpty) {
-      prefill = {for (final l in prev.first.lines) l.productId: l.qty};
-    }
+    final prev = store.lastPickupBefore(trader.id, store.day);
+    final prefill = prev == null ? null : {for (final l in prev.lines) l.productId: l.qty};
     await Navigator.push(
       context,
       MaterialPageRoute(
@@ -186,27 +196,40 @@ class _HeroCard extends StatelessWidget {
       ),
       child: DefaultTextStyle(
         style: TextStyle(color: cs.onPrimary, fontSize: 14),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('الباقي عند البقالات', style: TextStyle(color: cs.onPrimary.withValues(alpha: 0.85), fontWeight: FontWeight.w600)),
-          const SizedBox(height: 2),
-          MoneyText(s.remainingEndOfDay, size: 36, color: cs.onPrimary, showCurrency: true),
-          const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: LinearProgressIndicator(
-              value: progress.toDouble(),
-              minHeight: 7,
-              backgroundColor: cs.onPrimary.withValues(alpha: 0.2),
-              valueColor: AlwaysStoppedAnimation(cs.onPrimary),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'الباقي عند البقالات',
+              style: TextStyle(color: cs.onPrimary.withValues(alpha: 0.85), fontWeight: FontWeight.w600),
             ),
-          ),
-          const SizedBox(height: 12),
-          Row(children: [
-            _mini(context, 'العطاء', netDelivered, Icons.arrow_upward),
-            _mini(context, 'المحصّل', s.collected, Icons.arrow_downward),
-            _mini(context, 'في جيبك', s.collected - s.traderPaid - s.expenses, Icons.account_balance_wallet_outlined),
-          ]),
-        ]),
+            const SizedBox(height: 2),
+            MoneyText(s.remainingEndOfDay, size: 36, color: cs.onPrimary, showCurrency: true),
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: LinearProgressIndicator(
+                value: progress.toDouble(),
+                minHeight: 7,
+                backgroundColor: cs.onPrimary.withValues(alpha: 0.2),
+                valueColor: AlwaysStoppedAnimation(cs.onPrimary),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                _mini(context, 'العطاء', netDelivered, Icons.arrow_upward),
+                _mini(context, 'المحصّل', s.collected, Icons.arrow_downward),
+                _mini(
+                  context,
+                  'في جيبك',
+                  s.collected - s.traderPaid - s.expenses,
+                  Icons.account_balance_wallet_outlined,
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -214,14 +237,22 @@ class _HeroCard extends StatelessWidget {
   Widget _mini(BuildContext c, String label, int v, IconData icon) {
     final on = Theme.of(c).colorScheme.onPrimary;
     return Expanded(
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Icon(icon, size: 14, color: on.withValues(alpha: 0.8)),
-          const SizedBox(width: 3),
-          Text(label, style: TextStyle(fontSize: 12.5, color: on.withValues(alpha: 0.85))),
-        ]),
-        FittedBox(fit: BoxFit.scaleDown, child: MoneyText(v, size: 17, color: on)),
-      ]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 14, color: on.withValues(alpha: 0.8)),
+              const SizedBox(width: 3),
+              Text(label, style: TextStyle(fontSize: 12.5, color: on.withValues(alpha: 0.85))),
+            ],
+          ),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: MoneyText(v, size: 17, color: on),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -241,9 +272,12 @@ class _StockCard extends StatelessWidget {
         child: ExpansionTile(
           shape: const Border(),
           leading: Icon(Icons.inventory_outlined, color: cs.tertiary),
-          title: const Text('البضاعة الباقية في السيارة', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
-          subtitle: Text(rows.map((r) => '${r.name} ${qtyText(r.onHand)}').join(' · '),
-              maxLines: 1, overflow: TextOverflow.ellipsis),
+          title: const Text('البضاعة الباقية في السيارة', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+          subtitle: Text(
+            rows.map((r) => '${r.name} ${qtyText(r.onHand)}').join(' · '),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
@@ -252,33 +286,56 @@ class _StockCard extends StatelessWidget {
                 children: [
                   TableRow(
                     children: ['الصنف', 'استلمت', 'وزّعت', 'الباقي']
-                        .map((t) => Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 6),
-                              child: Text(t, style: TextStyle(fontWeight: FontWeight.w700, color: cs.onSurfaceVariant, fontSize: 13)),
-                            ))
+                        .map(
+                          (t) => Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 6),
+                            child: Text(
+                              t,
+                              style: TextStyle(fontWeight: FontWeight.w700, color: cs.onSurfaceVariant, fontSize: 13),
+                            ),
+                          ),
+                        )
                         .toList(),
                   ),
                   for (final r in rows)
-                    TableRow(children: [
-                      Padding(padding: const EdgeInsets.symmetric(vertical: 5), child: Text(r.name, style: const TextStyle(fontWeight: FontWeight.w700))),
-                      Padding(padding: const EdgeInsets.symmetric(vertical: 5), child: Text(qtyText(r.picked - r.traderReturns))),
-                      Padding(padding: const EdgeInsets.symmetric(vertical: 5), child: Text(qtyText(r.delivered - r.shopReturns))),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 5),
-                        child: Text(qtyText(r.onHand),
+                    TableRow(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 5),
+                          child: Text(r.name, style: const TextStyle(fontWeight: FontWeight.w700)),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 5),
+                          child: Text(qtyText(r.picked - r.traderReturns)),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 5),
+                          child: Text(qtyText(r.delivered - r.shopReturns)),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 5),
+                          child: Text(
+                            qtyText(r.onHand),
                             style: TextStyle(
-                                fontWeight: FontWeight.w800,
-                                color: r.onHand < 0 ? debtColor(context) : (r.onHand > 0 ? AppColors.warn : paidColor(context)))),
-                      ),
-                    ]),
+                              fontWeight: FontWeight.w700,
+                              color: r.onHand < 0
+                                  ? debtColor(context)
+                                  : (r.onHand > 0 ? AppColors.warn : paidColor(context)),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                 ],
               ),
             ),
             if (rows.any((r) => r.onHand < 0))
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                child: Text('تنبيه: وزّعت أكثر مما استلمت في بعض الأصناف. راجع الاستلام.',
-                    style: TextStyle(color: debtColor(context), fontSize: 12.5, fontWeight: FontWeight.w600)),
+                child: Text(
+                  'تنبيه: وزّعت أكثر مما استلمت في بعض الأصناف. راجع الاستلام.',
+                  style: TextStyle(color: debtColor(context), fontSize: 12.5, fontWeight: FontWeight.w600),
+                ),
               ),
           ],
         ),
@@ -290,7 +347,7 @@ class _StockCard extends StatelessWidget {
 // ------------------------------------------------------------------ بطاقات البقالات
 
 class _DeliverTile extends StatelessWidget {
-  const _DeliverTile({required this.shop, required this.day});
+  const _DeliverTile({super.key, required this.shop, required this.day});
   final Shop shop;
   final ShopDay day;
 
@@ -321,39 +378,47 @@ class _DeliverTile extends StatelessWidget {
             ),
           ),
         ),
-        onLongPress: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ShopDetailScreen(shopId: shop.id))),
+        onLongPress: () =>
+            Navigator.push(context, MaterialPageRoute(builder: (_) => ShopDetailScreen(shopId: shop.id))),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-          child: Row(children: [
-            ShopAvatar(shop.name, active: done, done: done),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(shop.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16.5)),
-                const SizedBox(height: 2),
-                Text(
-                  done ? summary.join(' · ') : (day.before > 0 ? 'عليه من قبل ${money(day.before)}' : 'لم يُعطَ بعد'),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13.5),
+          child: Row(
+            children: [
+              ShopAvatar(shop.name, active: done, done: done),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(shop.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16.5)),
+                    const SizedBox(height: 2),
+                    Text(
+                      done
+                          ? summary.join(' · ')
+                          : (day.before > 0 ? 'عليه من قبل ${money(day.before)}' : 'لم يُعطَ بعد'),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13.5),
+                    ),
+                  ],
                 ),
-              ]),
-            ),
-            const SizedBox(width: 8),
-            if (done)
-              MoneyText(day.delivered, size: 18, color: cs.primary)
-            else
-              FilledButton.tonalIcon(
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => LinesEditorScreen(mode: LinesMode.delivery, day: store.day, shop: shop),
-                  ),
-                ),
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('عطاء'),
               ),
-          ]),
+              const SizedBox(width: 8),
+              if (done)
+                MoneyText(day.delivered, size: 18, color: cs.primary)
+              else
+                FilledButton.tonalIcon(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => LinesEditorScreen(mode: LinesMode.delivery, day: store.day, shop: shop),
+                    ),
+                  ),
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('عطاء'),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -361,7 +426,7 @@ class _DeliverTile extends StatelessWidget {
 }
 
 class _CollectTile extends StatelessWidget {
-  const _CollectTile({required this.shop, required this.day});
+  const _CollectTile({super.key, required this.shop, required this.day});
   final Shop shop;
   final ShopDay day;
 
@@ -380,26 +445,39 @@ class _CollectTile extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
         onTap: () => showCollectSheet(context, shop),
-        onLongPress: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ShopDetailScreen(shopId: shop.id))),
+        onLongPress: () =>
+            Navigator.push(context, MaterialPageRoute(builder: (_) => ShopDetailScreen(shopId: shop.id))),
         child: Padding(
           padding: const EdgeInsets.all(12),
-          child: Row(children: [
-            ShopAvatar(shop.name, active: day.hasDelivery, done: paid),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(shop.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16.5)),
-                const SizedBox(height: 2),
-                Text(lines.isEmpty ? 'لا شيء' : lines.join(' · '),
-                    maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13.5)),
-              ]),
-            ),
-            const SizedBox(width: 8),
-            Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-              Text(paid ? 'الباقي' : 'المطلوب', style: TextStyle(fontSize: 11.5, color: cs.onSurfaceVariant)),
-              BalanceBadge(rem),
-            ]),
-          ]),
+          child: Row(
+            children: [
+              ShopAvatar(shop.name, active: day.hasDelivery, done: paid),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(shop.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16.5)),
+                    const SizedBox(height: 2),
+                    Text(
+                      lines.isEmpty ? 'لا شيء' : lines.join(' · '),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13.5),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(paid ? 'الباقي' : 'المطلوب', style: TextStyle(fontSize: 11.5, color: cs.onSurfaceVariant)),
+                  BalanceBadge(rem),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -431,16 +509,26 @@ class _ExpenseDialogState extends State<ExpenseDialog> {
     return AlertDialog(
       title: const Text('مصروف'),
       content: SingleChildScrollView(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Wrap(spacing: 6, runSpacing: 6, children: [
-            for (final c in expenseCategories)
-              ChoiceChip(label: Text(c), selected: cat == c, onSelected: (_) => setState(() => cat = c)),
-          ]),
-          const SizedBox(height: 12),
-          NumberField(controller: amount, autofocus: true, big: true, hint: 'المبلغ'),
-          const SizedBox(height: 10),
-          TextField(controller: note, decoration: const InputDecoration(labelText: 'ملاحظة (اختياري)')),
-        ]),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final c in expenseCategories)
+                  ChoiceChip(label: Text(c), selected: cat == c, onSelected: (_) => setState(() => cat = c)),
+              ],
+            ),
+            const SizedBox(height: 12),
+            NumberField(controller: amount, autofocus: true, big: true, hint: 'المبلغ'),
+            const SizedBox(height: 10),
+            TextField(
+              controller: note,
+              decoration: const InputDecoration(labelText: 'ملاحظة (اختياري)'),
+            ),
+          ],
+        ),
       ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),

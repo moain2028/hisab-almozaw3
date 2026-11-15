@@ -1,32 +1,40 @@
+import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import '../core/format.dart';
 import '../models/models.dart';
+import 'demo_data.dart';
 import 'ledger.dart';
+import 'ledger_index.dart';
 
 const _uuid = Uuid();
 String newId() => _uuid.v4();
 int nowMs() => DateTime.now().millisecondsSinceEpoch;
 
-/// المخزن الوحيد للتطبيق: يحمّل كل البيانات في الذاكرة من Hive،
-/// ويحفظ كل تعديل فوراً، ويُبلغ الواجهات بالتغيير (Provider).
-class Store extends ChangeNotifier {
-  static const _boxes = [
-    'shops',
-    'products',
-    'traders',
-    'shop_txs',
-    'trader_txs',
-    'expenses',
-    'meta',
-  ];
+/// صيغة ملف البيانات (تُرفع عند أي تغيير غير متوافق في البنية)
+const kSchemaVersion = 2;
+const kAppId = 'hisab_almozaw3';
+
+/// المخزن الوحيد للتطبيق (مصدر الحقيقة).
+///
+/// التصميم:
+/// - **التخزين**: Hive (ملفات append-only محلية، سريعة، تتحمل الانقطاع المفاجئ).
+/// - **الذاكرة**: كل السجلات محمّلة في Maps، مع فهارس تزايدية:
+///     * حسب البقالة  `_txByShop`   → لإعادة بناء فهرس حساب واحد فقط عند التعديل.
+///     * حسب اليوم    `_txByDay`    → ملخص اليوم والتقارير بدون مسح كل البيانات.
+/// - **كاش محسوب**: فهرس محاسبي لكل حساب (prefix sums) + ملخص كل يوم + القوائم المرتبة،
+///   كلها تُبطَل انتقائياً عند التغيير فقط.
+/// - **الإشعار**: `revision` يزيد مع كل تغيير، والواجهات تعيد البناء عبر Provider.
+class Store extends ChangeNotifier with WidgetsBindingObserver {
+  static const _boxNames = ['shops', 'products', 'traders', 'shop_txs', 'trader_txs', 'expenses', 'meta'];
 
   late Box _shopsBox, _productsBox, _tradersBox, _shopTxBox, _traderTxBox, _expBox, _meta;
 
+  // ---------------------------------------------------------------- السجلات
   final Map<String, Shop> _shops = {};
   final Map<String, Product> _products = {};
   final Map<String, Trader> _traders = {};
@@ -34,31 +42,67 @@ class Store extends ChangeNotifier {
   final Map<String, TraderTx> _traderTxs = {};
   final Map<String, Expense> _expenses = {};
 
+  // ---------------------------------------------------------------- فهارس تزايدية
+  final Map<String, Map<String, ShopTx>> _txByShop = {};
+  final Map<String, Map<String, ShopTx>> _txByDay = {};
+  final Map<String, Map<String, TraderTx>> _ttxByTrader = {};
+  final Map<String, Map<String, TraderTx>> _ttxByDay = {};
+
+  // ---------------------------------------------------------------- كاش محسوب (يُبطَل انتقائياً)
+  final Map<String, AccountIndex<ShopTx>> _shopIdx = {};
+  final Map<String, AccountIndex<TraderTx>> _traderIdx = {};
+  final Map<String, DaySummary> _summaryCache = {};
+  List<Shop>? _shopsSorted;
+  List<Product>? _productsSorted;
+
   bool ready = false;
 
-  /// اليوم التجاري المعروض في الشاشات (افتراضياً اليوم)
+  /// يزيد مع كل تغيير في البيانات (يُستخدم لمعرفة هل تغيّر شيء منذ آخر نسخة احتياطية)
+  int get revision => _revision;
+  int _revision = 0;
+
+  /// يُستدعى بعد كل تغيير في البيانات (تستخدمه خدمة النسخ الاحتياطي التلقائي)
+  VoidCallback? onDataChanged;
+
+  // ================================================================ اليوم المعروض
+
   String _day = todayKey();
   String get day => _day;
   bool get isToday => _day == todayKey();
   void setDay(String d) {
-    if (d.compareTo(todayKey()) > 0) return;
+    if (d.compareTo(todayKey()) > 0 || d == _day) return;
     _day = d;
     notifyListeners();
   }
 
+  /// عند بقاء التطبيق مفتوحاً بعد منتصف الليل: انتقل لليوم الجديد تلقائياً
+  void refreshToday() {
+    final t = todayKey();
+    if (_day != t && _day == shiftDay(t, -1)) {
+      _day = t;
+      notifyListeners();
+    }
+  }
+
+  // ================================================================ التهيئة
+
   Future<void> init() async {
     await Hive.initFlutter();
-    final opened = <Box>[];
-    for (final name in _boxes) {
-      opened.add(await Hive.openBox(name));
-    }
-    _shopsBox = opened[0];
-    _productsBox = opened[1];
-    _tradersBox = opened[2];
-    _shopTxBox = opened[3];
-    _traderTxBox = opened[4];
-    _expBox = opened[5];
-    _meta = opened[6];
+    final boxes = await Future.wait([
+      for (final n in _boxNames)
+        Hive.openBox(
+          n,
+          // ضغط الملف عندما تتراكم السجلات المحذوفة/المستبدلة (يوفّر المساحة ويسرّع الفتح)
+          compactionStrategy: (entries, deleted) => deleted > 200 && deleted > entries ~/ 4,
+        ),
+    ]);
+    _shopsBox = boxes[0];
+    _productsBox = boxes[1];
+    _tradersBox = boxes[2];
+    _shopTxBox = boxes[3];
+    _traderTxBox = boxes[4];
+    _expBox = boxes[5];
+    _meta = boxes[6];
     _loadAll();
     if (_traders.isEmpty) {
       final t = Trader(id: newId(), name: 'التاجر');
@@ -72,66 +116,127 @@ class Store extends ChangeNotifier {
   void _loadAll() {
     _shops
       ..clear()
-      ..addEntries(_shopsBox.values.map((m) {
-        final s = Shop.fromMap(m as Map);
-        return MapEntry(s.id, s);
-      }));
+      ..addEntries(_shopsBox.values.map((m) => Shop.fromMap(m as Map)).map((s) => MapEntry(s.id, s)));
     _products
       ..clear()
-      ..addEntries(_productsBox.values.map((m) {
-        final p = Product.fromMap(m as Map);
-        return MapEntry(p.id, p);
-      }));
+      ..addEntries(_productsBox.values.map((m) => Product.fromMap(m as Map)).map((p) => MapEntry(p.id, p)));
     _traders
       ..clear()
-      ..addEntries(_tradersBox.values.map((m) {
-        final t = Trader.fromMap(m as Map);
-        return MapEntry(t.id, t);
-      }));
-    _shopTxs
-      ..clear()
-      ..addEntries(_shopTxBox.values.map((m) {
-        final t = ShopTx.fromMap(m as Map);
-        return MapEntry(t.id, t);
-      }));
-    _traderTxs
-      ..clear()
-      ..addEntries(_traderTxBox.values.map((m) {
-        final t = TraderTx.fromMap(m as Map);
-        return MapEntry(t.id, t);
-      }));
+      ..addEntries(_tradersBox.values.map((m) => Trader.fromMap(m as Map)).map((t) => MapEntry(t.id, t)));
     _expenses
       ..clear()
-      ..addEntries(_expBox.values.map((m) {
-        final e = Expense.fromMap(m as Map);
-        return MapEntry(e.id, e);
-      }));
+      ..addEntries(_expBox.values.map((m) => Expense.fromMap(m as Map)).map((e) => MapEntry(e.id, e)));
+
+    _shopTxs.clear();
+    _txByShop.clear();
+    _txByDay.clear();
+    for (final m in _shopTxBox.values) {
+      _indexShopTx(ShopTx.fromMap(m as Map));
+    }
+    _traderTxs.clear();
+    _ttxByTrader.clear();
+    _ttxByDay.clear();
+    for (final m in _traderTxBox.values) {
+      _indexTraderTx(TraderTx.fromMap(m as Map));
+    }
+    _invalidateAll();
   }
 
-  // ================================================================ إعدادات بسيطة
+  // ================================================================ الفهرسة والإبطال
+
+  void _indexShopTx(ShopTx t) {
+    _shopTxs[t.id] = t;
+    (_txByShop[t.shopId] ??= {})[t.id] = t;
+    (_txByDay[t.day] ??= {})[t.id] = t;
+  }
+
+  ShopTx? _unindexShopTx(String id) {
+    final old = _shopTxs.remove(id);
+    if (old != null) {
+      _txByShop[old.shopId]?.remove(id);
+      _txByDay[old.day]?.remove(id);
+    }
+    return old;
+  }
+
+  void _indexTraderTx(TraderTx t) {
+    _traderTxs[t.id] = t;
+    (_ttxByTrader[t.traderId] ??= {})[t.id] = t;
+    (_ttxByDay[t.day] ??= {})[t.id] = t;
+  }
+
+  TraderTx? _unindexTraderTx(String id) {
+    final old = _traderTxs.remove(id);
+    if (old != null) {
+      _ttxByTrader[old.traderId]?.remove(id);
+      _ttxByDay[old.day]?.remove(id);
+    }
+    return old;
+  }
+
+  void _invalidateAll() {
+    _shopIdx.clear();
+    _traderIdx.clear();
+    _summaryCache.clear();
+    _shopsSorted = null;
+    _productsSorted = null;
+  }
+
+  /// يعلن تغيّر البيانات: يبطل ملخصات الأيام (رخيصة) ويُخطر الواجهات
+  void _changed() {
+    _revision++;
+    _summaryCache.clear();
+    notifyListeners();
+    onDataChanged?.call();
+  }
+
+  // ================================================================ إعدادات
 
   String get currency => (_meta.get('currency') as String?) ?? 'ريال';
   String get distributorName => (_meta.get('distributorName') as String?) ?? '';
-  int get themeMode => (_meta.get('themeMode') as int?) ?? 0; // 0 تلقائي 1 فاتح 2 داكن
+  int get themeMode => (_meta.get('themeMode') as int?) ?? 0;
   double get textScale => ((_meta.get('textScale') as num?) ?? 1.0).toDouble();
+  bool get haptics => (_meta.get('haptics') as bool?) ?? true;
+  bool get autoBackup => (_meta.get('autoBackup') as bool?) ?? true;
   int get lastBackup => (_meta.get('lastBackup') as int?) ?? 0;
+  int get lastBackupRevision => (_meta.get('lastBackupRevision') as int?) ?? -1;
+  bool get onboarded => (_meta.get('onboarded') as bool?) ?? false;
+
+  T? meta<T>(String key) => _meta.get(key) as T?;
 
   Future<void> setMeta(String key, Object? value) async {
     await _meta.put(key, value);
     notifyListeners();
   }
 
+  /// يسجّل وقت آخر نسخة احتياطية ومرجع البيانات وقتها (لتجنب نسخ مكرر بلا تغيير)
+  Future<void> markBackup() async {
+    await _meta.putAll({'lastBackup': nowMs(), 'lastBackupRevision': _persistentRevision});
+    notifyListeners();
+  }
+
+  /// مرجع ثابت عبر إعادة التشغيل: عدد السجلات + آخر تعديل
+  int get _persistentRevision => Object.hash(
+    _shops.length,
+    _shopTxs.length,
+    _traderTxs.length,
+    _expenses.length,
+    _products.length,
+    _meta.get('dataStamp'),
+  );
+
+  bool get hasUnbackedChanges => lastBackupRevision != _persistentRevision;
+
+  Future<void> _stamp() => _meta.put('dataStamp', nowMs());
+
   // ================================================================ البقالات
 
-  /// البقالات النشطة بترتيب خط السير
-  List<Shop> get shops {
-    final l = _shops.values.where((s) => !s.archived).toList()
-      ..sort((a, b) {
-        final c = a.routeOrder.compareTo(b.routeOrder);
-        return c != 0 ? c : a.name.compareTo(b.name);
-      });
-    return l;
-  }
+  /// البقالات النشطة بترتيب خط السير (مخزّنة مؤقتاً)
+  List<Shop> get shops => _shopsSorted ??= (_shops.values.where((s) => !s.archived).toList()
+    ..sort((a, b) {
+      final c = a.routeOrder.compareTo(b.routeOrder);
+      return c != 0 ? c : a.name.compareTo(b.name);
+    }));
 
   List<Shop> get archivedShops =>
       _shops.values.where((s) => s.archived).toList()..sort((a, b) => a.name.compareTo(b.name));
@@ -139,9 +244,13 @@ class Store extends ChangeNotifier {
   Shop? shop(String id) => _shops[id];
 
   Future<Shop> saveShop(Shop s) async {
+    final old = _shops[s.id];
     _shops[s.id] = s;
+    _shopsSorted = null;
+    if (old == null || old.openingBalance != s.openingBalance) _shopIdx.remove(s.id);
+    _changed();
     await _shopsBox.put(s.id, s.toMap());
-    notifyListeners();
+    await _stamp();
     return s;
   }
 
@@ -150,48 +259,73 @@ class Store extends ChangeNotifier {
     String owner = '',
     String phone = '',
     String area = '',
+    String notes = '',
     int openingBalance = 0,
   }) {
     final maxOrder = _shops.values.fold<int>(0, (m, s) => s.routeOrder > m ? s.routeOrder : m);
-    return saveShop(Shop(
-      id: newId(),
-      name: name,
-      owner: owner,
-      phone: phone,
-      area: area,
-      openingBalance: openingBalance,
-      routeOrder: maxOrder + 1,
-      createdAt: nowMs(),
-    ));
+    return saveShop(
+      Shop(
+        id: newId(),
+        name: name,
+        owner: owner,
+        phone: phone,
+        area: area,
+        notes: notes,
+        openingBalance: openingBalance,
+        routeOrder: maxOrder + 1,
+        createdAt: nowMs(),
+      ),
+    );
   }
 
   Future<void> reorderShops(List<Shop> ordered) async {
+    final batch = <String, Map<String, Object?>>{};
     for (var i = 0; i < ordered.length; i++) {
       ordered[i].routeOrder = i + 1;
-      await _shopsBox.put(ordered[i].id, ordered[i].toMap());
+      batch[ordered[i].id] = ordered[i].toMap();
     }
-    notifyListeners();
+    _shopsSorted = null;
+    _changed();
+    await _shopsBox.putAll(batch);
   }
 
-  /// حذف نهائي للبقالة مع كل حركاتها
-  Future<void> deleteShop(String id) async {
-    final ids = _shopTxs.values.where((t) => t.shopId == id).map((t) => t.id).toList();
-    for (final t in ids) {
-      _shopTxs.remove(t);
+  /// حذف نهائي للبقالة مع كل حركاتها. يُرجع ما حُذف لإمكانية التراجع.
+  Future<(Shop, List<ShopTx>)?> deleteShop(String id) async {
+    final shop = _shops.remove(id);
+    if (shop == null) return null;
+    final txs = (_txByShop.remove(id) ?? {}).values.toList();
+    for (final t in txs) {
+      _shopTxs.remove(t.id);
+      _txByDay[t.day]?.remove(t.id);
     }
-    await _shopTxBox.deleteAll(ids);
-    _shops.remove(id);
+    _shopIdx.remove(id);
+    _shopsSorted = null;
+    _changed();
+    await _shopTxBox.deleteAll(txs.map((t) => t.id));
     await _shopsBox.delete(id);
-    notifyListeners();
+    await _stamp();
+    return (shop, txs);
+  }
+
+  Future<void> restoreShop(Shop s, List<ShopTx> txs) async {
+    _shops[s.id] = s;
+    for (final t in txs) {
+      _indexShopTx(t);
+    }
+    _shopIdx.remove(s.id);
+    _shopsSorted = null;
+    _changed();
+    await _shopsBox.put(s.id, s.toMap());
+    await _shopTxBox.putAll({for (final t in txs) t.id: t.toMap()});
   }
 
   // ================================================================ الأصناف
 
-  List<Product> get allProducts => _products.values.toList()
+  List<Product> get allProducts => _productsSorted ??= (_products.values.toList()
     ..sort((a, b) {
       final c = a.sortOrder.compareTo(b.sortOrder);
       return c != 0 ? c : a.name.compareTo(b.name);
-    });
+    }));
 
   List<Product> get products => allProducts.where((p) => p.active).toList();
 
@@ -199,41 +333,43 @@ class Store extends ChangeNotifier {
 
   Future<void> saveProduct(Product p) async {
     _products[p.id] = p;
+    _productsSorted = null;
+    _changed();
     await _productsBox.put(p.id, p.toMap());
-    notifyListeners();
+    await _stamp();
   }
 
   Future<void> addProduct(String name, String unit, int sell, int cost) {
     final maxOrder = _products.values.fold<int>(0, (m, p) => p.sortOrder > m ? p.sortOrder : m);
-    return saveProduct(Product(
-      id: newId(),
-      name: name,
-      unit: unit,
-      sellPrice: sell,
-      costPrice: cost,
-      sortOrder: maxOrder + 1,
-    ));
+    return saveProduct(
+      Product(id: newId(), name: name, unit: unit, sellPrice: sell, costPrice: cost, sortOrder: maxOrder + 1),
+    );
   }
 
   Future<void> reorderProducts(List<Product> ordered) async {
+    final batch = <String, Map<String, Object?>>{};
     for (var i = 0; i < ordered.length; i++) {
       ordered[i].sortOrder = i + 1;
-      await _productsBox.put(ordered[i].id, ordered[i].toMap());
+      batch[ordered[i].id] = ordered[i].toMap();
     }
-    notifyListeners();
+    _productsSorted = null;
+    _changed();
+    await _productsBox.putAll(batch);
   }
 
-  /// الصنف المستخدم في عمليات سابقة لا يُحذف، بل يُخفى
+  /// الصنف المستخدم في عمليات سابقة لا يُحذف بل يُخفى (حتى تبقى الحسابات القديمة سليمة)
   Future<void> removeProduct(Product p) async {
-    final used = _shopTxs.values.any((t) => t.lines.any((l) => l.productId == p.id)) ||
+    final used =
+        _shopTxs.values.any((t) => t.lines.any((l) => l.productId == p.id)) ||
         _traderTxs.values.any((t) => t.lines.any((l) => l.productId == p.id));
     if (used) {
       p.active = false;
       await saveProduct(p);
     } else {
       _products.remove(p.id);
+      _productsSorted = null;
+      _changed();
       await _productsBox.delete(p.id);
-      notifyListeners();
     }
   }
 
@@ -246,116 +382,163 @@ class Store extends ChangeNotifier {
 
   Future<void> saveTrader(Trader t) async {
     _traders[t.id] = t;
+    _traderIdx.remove(t.id);
+    _changed();
     await _tradersBox.put(t.id, t.toMap());
-    notifyListeners();
+    await _stamp();
   }
-
-  Future<void> addTrader(String name, String phone) =>
-      saveTrader(Trader(id: newId(), name: name, phone: phone));
 
   // ================================================================ حركات البقالات
 
   Iterable<ShopTx> get shopTxs => _shopTxs.values;
 
-  List<ShopTx> shopTxsOf(String shopId, {String? day}) => _shopTxs.values
-      .where((t) => t.shopId == shopId && (day == null || t.day == day))
-      .toList()
-    ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+  /// حركات بقالة (مرتبة) — اختيارياً ليوم واحد
+  List<ShopTx> shopTxsOf(String shopId, {String? day}) {
+    final s = _shops[shopId];
+    if (s == null) return const [];
+    final idx = shopIndex(s);
+    return day == null ? idx.entries : idx.on(day);
+  }
 
   Future<void> saveShopTx(ShopTx t) async {
-    _shopTxs[t.id] = t;
+    final old = _unindexShopTx(t.id);
+    _indexShopTx(t);
+    _shopIdx.remove(t.shopId);
+    if (old != null && old.shopId != t.shopId) _shopIdx.remove(old.shopId);
+    _changed();
     await _shopTxBox.put(t.id, t.toMap());
-    notifyListeners();
+    await _stamp();
   }
 
-  Future<void> deleteShopTx(String id) async {
-    _shopTxs.remove(id);
+  /// يحذف ويُرجع الحركة المحذوفة (لزر "تراجع")
+  Future<ShopTx?> deleteShopTx(String id) async {
+    final old = _unindexShopTx(id);
+    if (old == null) return null;
+    _shopIdx.remove(old.shopId);
+    _changed();
     await _shopTxBox.delete(id);
-    notifyListeners();
+    await _stamp();
+    return old;
   }
 
-  Future<void> addPayment(String shopId, String day, int amount, {String note = ''}) =>
-      saveShopTx(ShopTx(
-        id: newId(),
-        shopId: shopId,
-        type: ShopTxType.payment,
-        day: day,
-        createdAt: nowMs(),
-        amount: amount,
-        note: note,
-      ));
+  Future<void> addPayment(String shopId, String day, int amount, {String note = ''}) => saveShopTx(
+    ShopTx(
+      id: newId(),
+      shopId: shopId,
+      type: ShopTxType.payment,
+      day: day,
+      createdAt: nowMs(),
+      amount: amount,
+      note: note,
+    ),
+  );
 
   // ================================================================ حركات التاجر
 
   Iterable<TraderTx> get traderTxs => _traderTxs.values;
 
-  List<TraderTx> traderTxsOf(String traderId, {String? day}) => _traderTxs.values
-      .where((t) => t.traderId == traderId && (day == null || t.day == day))
-      .toList()
-    ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
-
-  Future<void> saveTraderTx(TraderTx t) async {
-    _traderTxs[t.id] = t;
-    await _traderTxBox.put(t.id, t.toMap());
-    notifyListeners();
+  List<TraderTx> traderTxsOf(String traderId, {String? day}) {
+    final t = _traders[traderId];
+    if (t == null) return const [];
+    final idx = traderIndex(t);
+    return day == null ? idx.entries : idx.on(day);
   }
 
-  Future<void> deleteTraderTx(String id) async {
-    _traderTxs.remove(id);
+  /// آخر استلام قبل يوم معيّن (لتعبئة كميات الاستلام تلقائياً)
+  TraderTx? lastPickupBefore(String traderId, String day) {
+    final t = _traders[traderId];
+    if (t == null) return null;
+    final idx = traderIndex(t);
+    for (var i = idx.lowerBound(day) - 1; i >= 0; i--) {
+      if (idx.entries[i].type == TraderTxType.pickup) return idx.entries[i];
+    }
+    return null;
+  }
+
+  Future<void> saveTraderTx(TraderTx t) async {
+    final old = _unindexTraderTx(t.id);
+    _indexTraderTx(t);
+    _traderIdx.remove(t.traderId);
+    if (old != null && old.traderId != t.traderId) _traderIdx.remove(old.traderId);
+    _changed();
+    await _traderTxBox.put(t.id, t.toMap());
+    await _stamp();
+  }
+
+  Future<TraderTx?> deleteTraderTx(String id) async {
+    final old = _unindexTraderTx(id);
+    if (old == null) return null;
+    _traderIdx.remove(old.traderId);
+    _changed();
     await _traderTxBox.delete(id);
-    notifyListeners();
+    await _stamp();
+    return old;
   }
 
   // ================================================================ المصاريف
 
-  List<Expense> expensesOf({String? day}) => _expenses.values
-      .where((e) => day == null || e.day == day)
-      .toList()
-    ..sort((a, b) {
-      final c = b.day.compareTo(a.day);
-      return c != 0 ? c : b.createdAt.compareTo(a.createdAt);
-    });
+  List<Expense> expensesOf({String? day, String? from, String? to}) =>
+      _expenses.values
+          .where(
+            (e) =>
+                (day == null || e.day == day) &&
+                (from == null || e.day.compareTo(from) >= 0) &&
+                (to == null || e.day.compareTo(to) <= 0),
+          )
+          .toList()
+        ..sort((a, b) {
+          final c = b.day.compareTo(a.day);
+          return c != 0 ? c : b.createdAt.compareTo(a.createdAt);
+        });
 
   Iterable<Expense> get expenses => _expenses.values;
 
-  Future<void> addExpense(String day, int amount, String category, String note) async {
-    final e = Expense(
-      id: newId(),
-      day: day,
-      amount: amount,
-      category: category,
-      note: note,
-      createdAt: nowMs(),
-    );
+  Future<void> addExpense(String day, int amount, String category, String note) =>
+      saveExpense(Expense(id: newId(), day: day, amount: amount, category: category, note: note, createdAt: nowMs()));
+
+  Future<void> saveExpense(Expense e) async {
     _expenses[e.id] = e;
+    _changed();
     await _expBox.put(e.id, e.toMap());
-    notifyListeners();
+    await _stamp();
   }
 
-  Future<void> deleteExpense(String id) async {
-    _expenses.remove(id);
+  Future<Expense?> deleteExpense(String id) async {
+    final old = _expenses.remove(id);
+    _changed();
     await _expBox.delete(id);
-    notifyListeners();
+    await _stamp();
+    return old;
   }
 
-  // ================================================================ حسابات جاهزة للواجهة
+  // ================================================================ الحسابات (من الكاش)
 
-  int balanceOf(Shop s) => shopBalance(s, _shopTxs.values);
-  ShopDay dayOf(Shop s, [String? d]) => shopDay(s, _shopTxs.values, d ?? _day);
-  int traderBalanceOf(Trader t) => traderBalance(t, _traderTxs.values);
+  /// فهرس حساب البقالة: يُبنى عند أول طلب ويبقى حتى تتغير حركاتها
+  AccountIndex<ShopTx> shopIndex(Shop s) =>
+      _shopIdx[s.id] ??= AccountIndex.build(s.openingBalance, (_txByShop[s.id] ?? const {}).values);
 
-  /// مجموع المتبقي عند كل البقالات الآن
+  AccountIndex<TraderTx> traderIndex(Trader t) =>
+      _traderIdx[t.id] ??= AccountIndex.build(t.openingBalance, (_ttxByTrader[t.id] ?? const {}).values);
+
+  int balanceOf(Shop s) => shopIndex(s).balance;
+  ShopDay dayOf(Shop s, [String? d]) => shopDayFromIndex(shopIndex(s), d ?? _day);
+  String? lastPaymentOf(Shop s) => lastPaymentFromIndex(shopIndex(s));
+  int traderBalanceOf(Trader t) => traderIndex(t).balance;
+
   int get totalOwed => shops.fold(0, (a, s) => a + balanceOf(s));
-
-  /// مجموع ما عليك لكل التجار الآن
   int get totalToTraders => traders.fold(0, (a, t) => a + traderBalanceOf(t));
 
-  /// ملخص يوم كامل
+  /// ملخص يوم كامل (مخزّن مؤقتاً لكل يوم حتى يحدث تغيير)
   DaySummary summary([String? d]) {
     final k = d ?? _day;
+    return _summaryCache[k] ??= _buildSummary(k);
+  }
+
+  DaySummary _buildSummary(String k) {
     final s = DaySummary();
-    for (final t in _shopTxs.values) {
-      if (t.day != k || !_shops.containsKey(t.shopId)) continue;
+    for (final t in (_txByDay[k] ?? const {}).values) {
+      final shop = _shops[t.shopId];
+      if (shop == null || shop.archived) continue;
       switch (t.type) {
         case ShopTxType.delivery:
           s.delivered += t.amount;
@@ -369,8 +552,7 @@ class Store extends ChangeNotifier {
           s.discount += t.amount;
       }
     }
-    for (final t in _traderTxs.values) {
-      if (t.day != k) continue;
+    for (final t in (_ttxByDay[k] ?? const {}).values) {
       switch (t.type) {
         case TraderTxType.pickup:
           s.picked += t.amount;
@@ -384,213 +566,171 @@ class Store extends ChangeNotifier {
       if (e.day == k) s.expenses += e.amount;
     }
     for (final shop in shops) {
-      s.remainingEndOfDay += dayOf(shop, k).remaining;
+      s.remainingEndOfDay += shopIndex(shop).balanceAtEndOf(k);
     }
     return s;
   }
 
-  List<StockRow> stockOf([String? d]) =>
-      dayStock(d ?? _day, _shopTxs.values, _traderTxs.values, allProducts);
-
-  PeriodReport report(String from, String to) => buildReport(
-        from: from,
-        to: to,
-        shops: _shops.values.toList(),
-        shopTxs: _shopTxs.values,
-        traderTxs: _traderTxs.values,
-        expenses: _expenses.values,
-      );
-
-  // ================================================================ النسخ الاحتياطي
-
-  String exportJson() {
-    final doc = {
-      'app': 'hisab_almozaw3',
-      'version': 2,
-      'createdAt': DateTime.now().toIso8601String(),
-      'shops': [for (final s in _shops.values) s.toMap()],
-      'products': [for (final p in _products.values) p.toMap()],
-      'traders': [for (final t in _traders.values) t.toMap()],
-      'shopTxs': [for (final t in _shopTxs.values) t.toMap()],
-      'traderTxs': [for (final t in _traderTxs.values) t.toMap()],
-      'expenses': [for (final e in _expenses.values) e.toMap()],
-    };
-    return jsonEncode(doc);
+  List<StockRow> stockOf([String? d]) {
+    final k = d ?? _day;
+    return dayStock(k, (_txByDay[k] ?? const {}).values, (_ttxByDay[k] ?? const {}).values, allProducts);
   }
 
-  Future<void> markBackup() => setMeta('lastBackup', nowMs());
+  /// تقرير فترة: يمر فقط على أيام الفترة عبر فهرس الأيام
+  PeriodReport report(String from, String to) {
+    final shopTx = <ShopTx>[];
+    final trTx = <TraderTx>[];
+    final n = parseDay(to).difference(parseDay(from)).inDays;
+    if (n <= 400) {
+      for (var i = 0; i <= n; i++) {
+        final d = shiftDay(from, i);
+        shopTx.addAll((_txByDay[d] ?? const {}).values);
+        trTx.addAll((_ttxByDay[d] ?? const {}).values);
+      }
+    } else {
+      shopTx.addAll(_shopTxs.values);
+      trTx.addAll(_traderTxs.values);
+    }
+    return buildReport(
+      from: from,
+      to: to,
+      shops: _shops.values.toList(),
+      shopTxs: shopTx,
+      traderTxs: trTx,
+      expenses: _expenses.values,
+    );
+  }
 
-  /// يرجع عدد السجلات المستوردة. replace=true يمسح البيانات الحالية أولاً
-  Future<int> importJson(String text, {required bool replace}) async {
-    final doc = jsonDecode(text.trim());
-    if (doc is! Map || doc['app'] != 'hisab_almozaw3') {
+  /// أقدم يوم فيه بيانات
+  String? get firstDay {
+    String? f;
+    for (final k in _txByDay.keys) {
+      if ((_txByDay[k]?.isNotEmpty ?? false) && (f == null || k.compareTo(f) < 0)) f = k;
+    }
+    return f;
+  }
+
+  // ================================================================ تصدير واستيراد
+
+  int get recordCount =>
+      _shops.length + _products.length + _traders.length + _shopTxs.length + _traderTxs.length + _expenses.length;
+
+  Map<String, Object?> toJsonMap() => {
+    'app': kAppId,
+    'version': kSchemaVersion,
+    'createdAt': DateTime.now().toIso8601String(),
+    'settings': {'currency': currency, 'distributorName': distributorName},
+    'shops': [for (final s in _shops.values) s.toMap()],
+    'products': [for (final p in _products.values) p.toMap()],
+    'traders': [for (final t in _traders.values) t.toMap()],
+    'shopTxs': [for (final t in _shopTxs.values) t.toMap()],
+    'traderTxs': [for (final t in _traderTxs.values) t.toMap()],
+    'expenses': [for (final e in _expenses.values) e.toMap()],
+  };
+
+  String exportJson() => jsonEncode(toJsonMap());
+
+  /// يستورد بيانات (من نسخة احتياطية). replace=true يمسح الحالي أولاً.
+  /// الكتابة مجمّعة (putAll) لكل صندوق: أسرع بعشرات المرات من put لكل سجل.
+  Future<int> importMap(Map doc, {required bool replace}) async {
+    if (doc['app'] != kAppId) {
       throw const FormatException('هذا ليس ملف نسخة احتياطية من حساب الموزع');
     }
-    if (replace) await _clearData();
-    var n = 0;
-    Future<void> put(Box box, String key, Map<String, Object?> Function(Map) conv) async {
-      for (final m in (doc[key] as List?) ?? const []) {
-        final map = conv(m as Map);
-        await box.put(map['id'], map);
-        n++;
+    final v = (doc['version'] as num?)?.toInt() ?? 1;
+    if (v > kSchemaVersion) {
+      throw const FormatException('النسخة من إصدار أحدث من التطبيق. حدّث التطبيق أولاً.');
+    }
+    // تحقّق كامل قبل لمس أي بيانات: لو فشل التحويل لا يتغير شيء
+    Map<String, Map<String, Object?>> conv(String key, Map<String, Object?> Function(Map) f) => {
+      for (final m in (doc[key] as List?) ?? const []) (m as Map)['id'] as String: f(m),
+    };
+    final shops = conv('shops', (m) => Shop.fromMap(m).toMap());
+    final products = conv('products', (m) => Product.fromMap(m).toMap());
+    final traders = conv('traders', (m) => Trader.fromMap(m).toMap());
+    final shopTxs = conv('shopTxs', (m) => ShopTx.fromMap(m).toMap());
+    final traderTxs = conv('traderTxs', (m) => TraderTx.fromMap(m).toMap());
+    final expenses = conv('expenses', (m) => Expense.fromMap(m).toMap());
+
+    if (replace) {
+      await Future.wait([for (final b in _dataBoxes) b.clear()]);
+    }
+    await Future.wait([
+      _shopsBox.putAll(shops),
+      _productsBox.putAll(products),
+      _tradersBox.putAll(traders),
+      _shopTxBox.putAll(shopTxs),
+      _traderTxBox.putAll(traderTxs),
+      _expBox.putAll(expenses),
+    ]);
+    final settings = doc['settings'];
+    if (settings is Map) {
+      for (final k in ['currency', 'distributorName']) {
+        if (settings[k] is String && (settings[k] as String).isNotEmpty) await _meta.put(k, settings[k]);
       }
     }
-
-    await put(_shopsBox, 'shops', (m) => Shop.fromMap(m).toMap());
-    await put(_productsBox, 'products', (m) => Product.fromMap(m).toMap());
-    await put(_tradersBox, 'traders', (m) => Trader.fromMap(m).toMap());
-    await put(_shopTxBox, 'shopTxs', (m) => ShopTx.fromMap(m).toMap());
-    await put(_traderTxBox, 'traderTxs', (m) => TraderTx.fromMap(m).toMap());
-    await put(_expBox, 'expenses', (m) => Expense.fromMap(m).toMap());
-    _loadAll();
-    notifyListeners();
-    return n;
-  }
-
-  Future<void> _clearData() async {
-    for (final b in [_shopsBox, _productsBox, _tradersBox, _shopTxBox, _traderTxBox, _expBox]) {
-      await b.clear();
+    if (_tradersBox.isEmpty) {
+      final t = Trader(id: newId(), name: 'التاجر');
+      await _tradersBox.put(t.id, t.toMap());
     }
+    await _stamp();
     _loadAll();
+    _changed();
+    return shops.length + products.length + traders.length + shopTxs.length + traderTxs.length + expenses.length;
   }
+
+  Future<int> importJson(String text, {required bool replace}) async {
+    final doc = jsonDecode(text.trim());
+    if (doc is! Map) throw const FormatException('ملف غير صالح');
+    return importMap(doc, replace: replace);
+  }
+
+  List<Box> get _dataBoxes => [_shopsBox, _productsBox, _tradersBox, _shopTxBox, _traderTxBox, _expBox];
 
   Future<void> wipeAll() async {
-    await _clearData();
+    await Future.wait([for (final b in _dataBoxes) b.clear()]);
     final t = Trader(id: newId(), name: 'التاجر');
-    await saveTrader(t);
-    notifyListeners();
+    await _tradersBox.put(t.id, t.toMap());
+    await _stamp();
+    _loadAll();
+    _changed();
   }
 
-  // ================================================================ بيانات تجريبية
+  /// يضمن كتابة كل شيء على القرص (يُستدعى عند ذهاب التطبيق للخلفية)
+  Future<void> flush() async {
+    await Future.wait([
+      for (final b in [..._dataBoxes, _meta]) b.flush(),
+    ]);
+  }
+
+  // ================================================================ بيانات مبدئية / تجريبية
 
   bool get isEmpty => _shops.isEmpty && _products.isEmpty;
 
   Future<void> addStarterProducts() async {
-    const items = [
-      ('زبادي', 'كرتون', 2200, 1900),
-      ('حقين', 'كرتون', 1800, 1550),
-      ('لبن', 'كرتون', 2000, 1700),
-      ('جبن', 'كرتون', 3500, 3100),
-    ];
-    for (final i in items) {
-      await addProduct(i.$1, i.$2, i.$3, i.$4);
+    var order = _products.values.fold<int>(0, (m, p) => p.sortOrder > m ? p.sortOrder : m);
+    final batch = <String, Map<String, Object?>>{};
+    for (final i in starterProducts) {
+      final p = Product(id: newId(), name: i.$1, unit: i.$2, sellPrice: i.$3, costPrice: i.$4, sortOrder: ++order);
+      _products[p.id] = p;
+      batch[p.id] = p.toMap();
     }
+    _productsSorted = null;
+    _changed();
+    await _productsBox.putAll(batch);
   }
 
-  /// يملأ التطبيق ببيانات أسبوع لتجربة البرنامج
-  Future<void> loadDemo() async {
-    await _clearData();
-    final trader = Trader(id: newId(), name: 'مؤسسة الألبان', phone: '');
-    await saveTrader(trader);
-    await addStarterProducts();
-    final prods = products;
-    const names = [
-      ('بقالة الأمانة', 'أبو محمد', 'الحي الشرقي', 0),
-      ('سوبرماركت النور', 'عبدالله', 'الحي الشرقي', 4000),
-      ('بقالة الخير', 'سالم', 'شارع السوق', 0),
-      ('تموينات البركة', 'أحمد', 'شارع السوق', 0),
-      ('بقالة السعادة', 'خالد', 'الحي الغربي', 2500),
-      ('بقالة الوفاء', 'ناصر', 'الحي الغربي', 0),
-    ];
-    final created = <Shop>[];
-    for (final n in names) {
-      created.add(await addShop(name: n.$1, owner: n.$2, area: n.$3, openingBalance: n.$4));
-    }
-    final today = todayKey();
-    var seed = 7;
-    int rnd(int m) {
-      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
-      return seed % m;
-    }
+  /// يملأ التطبيق ببيانات أسبوع لتجربة البرنامج (يمسح الحالي)
+  Future<void> loadDemo({int days = 7}) async {
+    final doc = buildDemoData(days: days, newId: newId);
+    await importMap(doc, replace: true);
+  }
 
-    for (var back = 6; back >= 0; back--) {
-      final d = shiftDay(today, -back);
-      var created0 = DateTime.now().millisecondsSinceEpoch - back * 86400000 - 50000000;
-      final pickupLines = <String, double>{};
-      final dayDeliveries = <String, List<TxLine>>{};
-      for (final s in created) {
-        if (rnd(10) < 2) continue; // بعض الأيام بدون توزيع
-        final lines = <TxLine>[];
-        for (final p in prods) {
-          if (rnd(10) < 4) continue;
-          const qs = [0.5, 1.0, 1.5, 2.0, 3.0, 0.25, 1.0, 2.5];
-          final q = qs[rnd(qs.length)];
-          lines.add(TxLine(
-            productId: p.id,
-            name: p.name,
-            unit: p.unit,
-            qty: q,
-            price: p.sellPrice,
-            cost: p.costPrice,
-          ));
-          pickupLines[p.id] = (pickupLines[p.id] ?? 0) + q;
-        }
-        if (lines.isNotEmpty) dayDeliveries[s.id] = lines;
-      }
-      await saveTraderTx(TraderTx(
-        id: newId(),
-        traderId: trader.id,
-        type: TraderTxType.pickup,
-        day: d,
-        createdAt: created0,
-        lines: [
-          for (final p in prods)
-            if (pickupLines[p.id] != null)
-              TxLine(
-                productId: p.id,
-                name: p.name,
-                unit: p.unit,
-                qty: pickupLines[p.id]! + 1,
-                price: p.costPrice,
-                cost: p.costPrice,
-              ),
-        ],
-      ));
-      for (final e in dayDeliveries.entries) {
-        created0 += 600000;
-        await saveShopTx(ShopTx(
-          id: newId(),
-          shopId: e.key,
-          type: ShopTxType.delivery,
-          day: d,
-          createdAt: created0,
-          lines: e.value,
-        ));
-      }
-      if (back == 0) continue; // اليوم: لم يتم التحصيل بعد
-      for (final s in created) {
-        final due = dayOf(s, d).due;
-        if (due <= 0 || rnd(10) < 2) continue;
-        final pay = rnd(3) == 0 ? (due * 0.6).round() ~/ 100 * 100 : due;
-        created0 += 300000;
-        await saveShopTx(ShopTx(
-          id: newId(),
-          shopId: s.id,
-          type: ShopTxType.payment,
-          day: d,
-          createdAt: created0 + 40000000,
-          amount: pay,
-        ));
-      }
-      final owe = traderBalanceOf(trader);
-      final yesterdayPickup = traderTxsOf(trader.id, day: shiftDay(d, -1))
-          .where((t) => t.type == TraderTxType.pickup)
-          .fold(0, (a, t) => a + t.amount);
-      if (yesterdayPickup > 0 && owe > 0) {
-        await saveTraderTx(TraderTx(
-          id: newId(),
-          traderId: trader.id,
-          type: TraderTxType.payment,
-          day: d,
-          createdAt: created0 - 1000,
-          amount: yesterdayPickup > owe ? owe : yesterdayPickup,
-        ));
-      }
-      if (rnd(2) == 0) {
-        await addExpense(d, 1500 + rnd(3) * 500, 'بنزين', '');
-      }
-    }
-    if (kDebugMode) debugPrint('demo loaded');
+  void attachLifecycle() => WidgetsBinding.instance.addObserver(this);
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) refreshToday();
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) unawaited(flush());
   }
 }
 
@@ -606,4 +746,7 @@ class DaySummary {
   int remainingEndOfDay = 0;
   final Set<String> deliveredShops = {};
   final Set<String> paidShops = {};
+
+  /// النقد الفعلي من حركة اليوم
+  int get cash => collected - traderPaid - expenses;
 }

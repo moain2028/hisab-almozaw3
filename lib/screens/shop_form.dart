@@ -25,7 +25,8 @@ class _ShopFormScreenState extends State<ShopFormScreen> {
   late final area = TextEditingController(text: widget.shop?.area ?? '');
   late final notes = TextEditingController(text: widget.shop?.notes ?? '');
   late final opening = TextEditingController(
-      text: (widget.shop?.openingBalance ?? 0) == 0 ? '' : '${widget.shop!.openingBalance}');
+    text: (widget.shop?.openingBalance ?? 0) == 0 ? '' : '${widget.shop!.openingBalance}',
+  );
 
   @override
   void dispose() {
@@ -90,7 +91,10 @@ class _ShopFormScreenState extends State<ShopFormScreen> {
           TextField(
             controller: phone,
             keyboardType: TextInputType.phone,
-            decoration: const InputDecoration(labelText: 'رقم الجوال (للواتساب)', prefixIcon: Icon(Icons.phone_outlined)),
+            decoration: const InputDecoration(
+              labelText: 'رقم الجوال (للواتساب)',
+              prefixIcon: Icon(Icons.phone_outlined),
+            ),
           ),
           const SizedBox(height: 12),
           TextField(
@@ -99,9 +103,12 @@ class _ShopFormScreenState extends State<ShopFormScreen> {
           ),
           if (areas.isNotEmpty) ...[
             const SizedBox(height: 6),
-            Wrap(spacing: 6, children: [
-              for (final a in areas) ActionChip(label: Text(a), onPressed: () => setState(() => area.text = a)),
-            ]),
+            Wrap(
+              spacing: 6,
+              children: [
+                for (final a in areas) ActionChip(label: Text(a), onPressed: () => setState(() => area.text = a)),
+              ],
+            ),
           ],
           const SizedBox(height: 12),
           NumberField(controller: opening, label: 'دين سابق عليه قبل البرنامج (اختياري)'),

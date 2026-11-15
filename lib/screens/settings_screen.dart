@@ -6,6 +6,7 @@ import '../core/format.dart';
 import '../data/store.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
+import 'backups_screen.dart';
 import 'products_screen.dart';
 import 'trader_screen.dart';
 
@@ -26,132 +27,174 @@ class SettingsScreen extends StatelessWidget {
         children: [
           const SectionTitle('البيانات الأساسية'),
           Card(
-            child: Column(children: [
-              ListTile(
-                leading: const Icon(Icons.inventory_2_outlined),
-                title: const Text('الأصناف والأسعار', style: TextStyle(fontWeight: FontWeight.w700)),
-                subtitle: Text('${store.products.length} صنف'),
-                trailing: const Icon(Icons.chevron_left),
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProductsScreen())),
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.local_shipping_outlined),
-                title: const Text('التاجر', style: TextStyle(fontWeight: FontWeight.w700)),
-                subtitle: Text(store.mainTrader.name),
-                trailing: const Icon(Icons.chevron_left),
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => TraderScreen(trader: store.mainTrader))),
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.badge_outlined),
-                title: const Text('اسمك (يظهر في الكشوفات)', style: TextStyle(fontWeight: FontWeight.w700)),
-                subtitle: Text(store.distributorName.isEmpty ? 'غير محدد' : store.distributorName),
-                onTap: () async {
-                  final v = await askText(context, 'اسم الموزع', initial: store.distributorName);
-                  if (v != null) await store.setMeta('distributorName', v);
-                },
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.currency_exchange),
-                title: const Text('العملة', style: TextStyle(fontWeight: FontWeight.w700)),
-                subtitle: Text(store.currency),
-                onTap: () async {
-                  final v = await askText(context, 'اسم العملة', initial: store.currency, hint: 'ريال');
-                  if (v != null && v.isNotEmpty) await store.setMeta('currency', v);
-                },
-              ),
-            ]),
+            child: Column(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.inventory_2_outlined),
+                  title: const Text('الأصناف والأسعار', style: TextStyle(fontWeight: FontWeight.w700)),
+                  subtitle: Text('${store.products.length} صنف'),
+                  trailing: const Icon(Icons.chevron_left),
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProductsScreen())),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.local_shipping_outlined),
+                  title: const Text('التاجر', style: TextStyle(fontWeight: FontWeight.w700)),
+                  subtitle: Text(store.mainTrader.name),
+                  trailing: const Icon(Icons.chevron_left),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => TraderScreen(trader: store.mainTrader)),
+                  ),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.badge_outlined),
+                  title: const Text('اسمك (يظهر في الكشوفات)', style: TextStyle(fontWeight: FontWeight.w700)),
+                  subtitle: Text(store.distributorName.isEmpty ? 'غير محدد' : store.distributorName),
+                  onTap: () async {
+                    final v = await askText(context, 'اسم الموزع', initial: store.distributorName);
+                    if (v != null) await store.setMeta('distributorName', v);
+                  },
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.currency_exchange),
+                  title: const Text('العملة', style: TextStyle(fontWeight: FontWeight.w700)),
+                  subtitle: Text(store.currency),
+                  onTap: () async {
+                    final v = await askText(context, 'اسم العملة', initial: store.currency, hint: 'ريال');
+                    if (v != null && v.isNotEmpty) await store.setMeta('currency', v);
+                  },
+                ),
+              ],
+            ),
           ),
           const SectionTitle('المظهر'),
           Card(
             child: Padding(
               padding: const EdgeInsets.all(14),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                SegmentedButton<int>(
-                  showSelectedIcon: false,
-                  segments: const [
-                    ButtonSegment(value: 0, label: Text('تلقائي'), icon: Icon(Icons.brightness_auto)),
-                    ButtonSegment(value: 1, label: Text('فاتح'), icon: Icon(Icons.light_mode)),
-                    ButtonSegment(value: 2, label: Text('داكن'), icon: Icon(Icons.dark_mode)),
-                  ],
-                  selected: {store.themeMode},
-                  onSelectionChanged: (v) => store.setMeta('themeMode', v.first),
-                ),
-                const SizedBox(height: 12),
-                const Text('حجم الخط', style: TextStyle(fontWeight: FontWeight.w700)),
-                const SizedBox(height: 6),
-                SegmentedButton<double>(
-                  showSelectedIcon: false,
-                  segments: const [
-                    ButtonSegment(value: 1.0, label: Text('عادي')),
-                    ButtonSegment(value: 1.12, label: Text('كبير')),
-                    ButtonSegment(value: 1.25, label: Text('كبير جداً')),
-                  ],
-                  selected: {store.textScale},
-                  onSelectionChanged: (v) => store.setMeta('textScale', v.first),
-                ),
-              ]),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SegmentedButton<int>(
+                    showSelectedIcon: false,
+                    segments: const [
+                      ButtonSegment(value: 0, label: Text('تلقائي'), icon: Icon(Icons.brightness_auto)),
+                      ButtonSegment(value: 1, label: Text('فاتح'), icon: Icon(Icons.light_mode)),
+                      ButtonSegment(value: 2, label: Text('داكن'), icon: Icon(Icons.dark_mode)),
+                    ],
+                    selected: {store.themeMode},
+                    onSelectionChanged: (v) => store.setMeta('themeMode', v.first),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text('حجم الخط', style: TextStyle(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 6),
+                  SegmentedButton<double>(
+                    showSelectedIcon: false,
+                    segments: const [
+                      ButtonSegment(value: 1.0, label: Text('عادي')),
+                      ButtonSegment(value: 1.12, label: Text('كبير')),
+                      ButtonSegment(value: 1.25, label: Text('كبير جداً')),
+                    ],
+                    selected: {store.textScale},
+                    onSelectionChanged: (v) => store.setMeta('textScale', v.first),
+                  ),
+                  const SizedBox(height: 6),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    value: store.haptics,
+                    onChanged: (v) => store.setMeta('haptics', v),
+                    title: const Text('اهتزاز خفيف عند الضغط', style: TextStyle(fontWeight: FontWeight.w700)),
+                  ),
+                ],
+              ),
             ),
           ),
           const SectionTitle('النسخ الاحتياطي'),
           Card(
-            child: Column(children: [
-              ListTile(
-                leading: Icon(oldBackup ? Icons.warning_amber : Icons.cloud_done_outlined, color: oldBackup ? AppColors.warn : paidColor(context)),
-                title: Text(last == 0 ? 'لم تأخذ نسخة احتياطية بعد' : 'آخر نسخة: ${relativeDay(dayKey(DateTime.fromMillisecondsSinceEpoch(last)))}',
-                    style: TextStyle(fontWeight: FontWeight.w700, color: oldBackup ? AppColors.warn : null)),
-                subtitle: const Text('لو ضاع الجوال تضيع الحسابات. خذ نسخة كل يومين وأرسلها لنفسك في واتساب.'),
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.copy_all),
-                title: const Text('نسخ البيانات', style: TextStyle(fontWeight: FontWeight.w700)),
-                subtitle: const Text('ينسخ كل الحسابات كنص، الصقه في واتساب أو ملاحظات'),
-                onTap: () async {
-                  await Clipboard.setData(ClipboardData(text: store.exportJson()));
-                  await store.markBackup();
-                  if (context.mounted) toast(context, 'تم النسخ. الصقه الآن في محادثتك مع نفسك في واتساب');
-                },
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.restore),
-                title: const Text('استرجاع البيانات', style: TextStyle(fontWeight: FontWeight.w700)),
-                subtitle: const Text('الصق النص المحفوظ لاسترجاع الحسابات'),
-                onTap: () => _restore(context, store),
-              ),
-            ]),
+            child: Column(
+              children: [
+                ListTile(
+                  leading: Icon(
+                    oldBackup ? Icons.warning_amber : Icons.cloud_done_outlined,
+                    color: oldBackup ? AppColors.warn : paidColor(context),
+                  ),
+                  title: const Text('النسخ الاحتياطي على الجوال', style: TextStyle(fontWeight: FontWeight.w700)),
+                  subtitle: Text(
+                    last == 0
+                        ? 'لم تُحفظ نسخة بعد'
+                        : 'آخر نسخة: ${relativeDay(dayKey(DateTime.fromMillisecondsSinceEpoch(last)))} · ${store.autoBackup ? 'تلقائي مفعّل' : 'تلقائي متوقف'}',
+                    style: TextStyle(color: oldBackup ? AppColors.warn : null),
+                  ),
+                  trailing: const Icon(Icons.chevron_left),
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BackupsScreen())),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.copy_all),
+                  title: const Text('نسخ البيانات كنص', style: TextStyle(fontWeight: FontWeight.w700)),
+                  subtitle: const Text('ينسخ كل الحسابات كنص، الصقه في واتساب أو ملاحظات'),
+                  onTap: () async {
+                    await Clipboard.setData(ClipboardData(text: store.exportJson()));
+                    await store.markBackup();
+                    if (context.mounted) toast(context, 'تم النسخ. الصقه الآن في محادثتك مع نفسك في واتساب');
+                  },
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.restore),
+                  title: const Text('استرجاع من نص', style: TextStyle(fontWeight: FontWeight.w700)),
+                  subtitle: const Text('الصق النص المحفوظ لاسترجاع الحسابات'),
+                  onTap: () => _restore(context, store),
+                ),
+              ],
+            ),
           ),
           const SectionTitle('أخرى'),
           Card(
-            child: Column(children: [
-              ListTile(
-                leading: const Icon(Icons.science_outlined),
-                title: const Text('تحميل بيانات تجريبية', style: TextStyle(fontWeight: FontWeight.w700)),
-                subtitle: const Text('أسبوع كامل لتجربة البرنامج (يمسح البيانات الحالية)'),
-                onTap: () async {
-                  if (!await confirm(context, 'سيتم مسح كل البيانات الحالية وتحميل بيانات تجريبية. متأكد؟', ok: 'تحميل')) return;
-                  await store.loadDemo();
-                  if (context.mounted) toast(context, 'تم تحميل البيانات التجريبية');
-                },
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: Icon(Icons.delete_forever_outlined, color: debtColor(context)),
-                title: Text('مسح كل البيانات', style: TextStyle(fontWeight: FontWeight.w700, color: debtColor(context))),
-                onTap: () async {
-                  if (!await confirm(context, 'مسح كل البقالات والحسابات نهائياً؟')) return;
-                  if (!context.mounted) return;
-                  if (!await confirm(context, 'تأكيد أخير: لا يمكن التراجع!', ok: 'مسح الكل')) return;
-                  await store.wipeAll();
-                },
-              ),
-            ]),
+            child: Column(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.science_outlined),
+                  title: const Text('تحميل بيانات تجريبية', style: TextStyle(fontWeight: FontWeight.w700)),
+                  subtitle: const Text('أسبوع كامل لتجربة البرنامج (يمسح البيانات الحالية)'),
+                  onTap: () async {
+                    if (!await confirm(
+                      context,
+                      'سيتم مسح كل البيانات الحالية وتحميل بيانات تجريبية. متأكد؟',
+                      ok: 'تحميل',
+                    )) {
+                      return;
+                    }
+                    await store.loadDemo();
+                    if (context.mounted) toast(context, 'تم تحميل البيانات التجريبية');
+                  },
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: Icon(Icons.delete_forever_outlined, color: debtColor(context)),
+                  title: Text(
+                    'مسح كل البيانات',
+                    style: TextStyle(fontWeight: FontWeight.w700, color: debtColor(context)),
+                  ),
+                  onTap: () async {
+                    if (!await confirm(context, 'مسح كل البقالات والحسابات نهائياً؟')) return;
+                    if (!context.mounted) return;
+                    if (!await confirm(context, 'تأكيد أخير: لا يمكن التراجع!', ok: 'مسح الكل')) return;
+                    await store.wipeAll();
+                  },
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 16),
-          Center(child: Text('حساب الموزع · الإصدار 2.0', style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12.5))),
+          Center(
+            child: Text(
+              'حساب الموزع · الإصدار 2.1 · ${store.recordCount} سجل',
+              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12.5),
+            ),
+          ),
         ],
       ),
     );
@@ -165,17 +208,23 @@ class SettingsScreen extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('استرجاع البيانات'),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-          TextField(
-            controller: ctl,
-            maxLines: 5,
-            style: const TextStyle(fontSize: 11),
-            textDirection: TextDirection.ltr,
-            decoration: const InputDecoration(hintText: 'الصق نص النسخة الاحتياطية هنا'),
-          ),
-          const SizedBox(height: 8),
-          const Text('دمج: يضيف ويحدّث بدون مسح.\nاستبدال: يمسح الحالي ويرجع النسخة.', style: TextStyle(fontSize: 12.5)),
-        ]),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: ctl,
+              maxLines: 5,
+              style: const TextStyle(fontSize: 11),
+              textDirection: TextDirection.ltr,
+              decoration: const InputDecoration(hintText: 'الصق نص النسخة الاحتياطية هنا'),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'دمج: يضيف ويحدّث بدون مسح.\nاستبدال: يمسح الحالي ويرجع النسخة.',
+              style: TextStyle(fontSize: 12.5),
+            ),
+          ],
+        ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
           TextButton(onPressed: () => Navigator.pop(ctx, 'replace'), child: const Text('استبدال')),

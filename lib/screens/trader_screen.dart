@@ -30,13 +30,23 @@ class TraderScreen extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final t = store.trader(trader.id) ?? trader;
     final bal = store.traderBalanceOf(t);
-    final rows = traderStatement(t, store.traderTxs);
+    final idx = store.traderIndex(t);
+    final rows = [for (var i = 0; i < idx.length; i++) StatementRow(idx.entries[i], idx.balanceAfter(i))];
     final day = store.day;
-    final todayPickup = store.traderTxsOf(t.id, day: day).where((x) => x.type == TraderTxType.pickup).fold(0, (a, x) => a + x.amount);
-    final todayPaid = store.traderTxsOf(t.id, day: day).where((x) => x.type == TraderTxType.payment).fold(0, (a, x) => a + x.amount);
+    final todayPickup = store
+        .traderTxsOf(t.id, day: day)
+        .where((x) => x.type == TraderTxType.pickup)
+        .fold(0, (a, x) => a + x.amount);
+    final todayPaid = store
+        .traderTxsOf(t.id, day: day)
+        .where((x) => x.type == TraderTxType.payment)
+        .fold(0, (a, x) => a + x.amount);
     // حساب أمس: ما استلمته أمس (الذي يُدفع عادة صباح اليوم)
     final yesterday = shiftDay(day, -1);
-    final yPickup = store.traderTxsOf(t.id, day: yesterday).where((x) => x.type != TraderTxType.payment).fold(0, (a, x) => a + x.effect);
+    final yPickup = store
+        .traderTxsOf(t.id, day: yesterday)
+        .where((x) => x.type != TraderTxType.payment)
+        .fold(0, (a, x) => a + x.effect);
 
     final byDay = <String, List<StatementRow<TraderTx>>>{};
     for (final r in rows) {
@@ -64,51 +74,69 @@ class TraderScreen extends StatelessWidget {
             child: Card(
               child: Padding(
                 padding: const EdgeInsets.all(18),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Row(children: [
-                    Icon(Icons.local_shipping, color: cs.tertiary),
-                    const SizedBox(width: 8),
-                    Text(t.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
-                  ]),
-                  const SizedBox(height: 10),
-                  Text(bal > 0 ? 'عليك للتاجر' : (bal < 0 ? 'لك عند التاجر' : 'الحساب'),
-                      style: TextStyle(color: cs.onSurfaceVariant, fontWeight: FontWeight.w600)),
-                  MoneyText(bal.abs(), size: 36, color: bal > 0 ? debtColor(context) : paidColor(context), showCurrency: true),
-                  const Divider(height: 22),
-                  KvRow('استلام ${relativeDay(day)}', todayPickup),
-                  KvRow('دفعت ${relativeDay(day)}', todayPaid, color: paidColor(context)),
-                  if (yPickup > 0) KvRow('بضاعة ${relativeDay(yesterday)}', yPickup),
-                ]),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.local_shipping, color: cs.tertiary),
+                        const SizedBox(width: 8),
+                        Text(t.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17)),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      bal > 0 ? 'عليك للتاجر' : (bal < 0 ? 'لك عند التاجر' : 'الحساب'),
+                      style: TextStyle(color: cs.onSurfaceVariant, fontWeight: FontWeight.w600),
+                    ),
+                    MoneyText(
+                      bal.abs(),
+                      size: 36,
+                      color: bal > 0 ? debtColor(context) : paidColor(context),
+                      showCurrency: true,
+                    ),
+                    const Divider(height: 22),
+                    KvRow('استلام ${relativeDay(day)}', todayPickup),
+                    KvRow('دفعت ${relativeDay(day)}', todayPaid, color: paidColor(context)),
+                    if (yPickup > 0) KvRow('بضاعة ${relativeDay(yesterday)}', yPickup),
+                  ],
+                ),
               ),
             ),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
-            child: Row(children: [
-              Expanded(
-                child: FilledButton.tonalIcon(
-                  onPressed: () => _pickup(context, store, t),
-                  style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(54)),
-                  icon: const Icon(Icons.inventory_2_outlined),
-                  label: const Text('استلام بضاعة'),
+            child: Row(
+              children: [
+                Expanded(
+                  child: FilledButton.tonalIcon(
+                    onPressed: () => _pickup(context, store, t),
+                    style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(54)),
+                    icon: const Icon(Icons.inventory_2_outlined),
+                    label: const Text('استلام بضاعة'),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: () => _pay(context, store, t, bal, yPickup),
-                  style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(54)),
-                  icon: const Icon(Icons.payments_outlined),
-                  label: const Text('دفعة للتاجر'),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: () => _pay(context, store, t, bal, yPickup),
+                    style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(54)),
+                    icon: const Icon(Icons.payments_outlined),
+                    label: const Text('دفعة للتاجر'),
+                  ),
                 ),
-              ),
-            ]),
+              ],
+            ),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
             child: OutlinedButton.icon(
               onPressed: () => Navigator.push(
-                  context, MaterialPageRoute(builder: (_) => LinesEditorScreen(mode: LinesMode.traderReturn, day: day, trader: t))),
+                context,
+                MaterialPageRoute(
+                  builder: (_) => LinesEditorScreen(mode: LinesMode.traderReturn, day: day, trader: t),
+                ),
+              ),
               icon: const Icon(Icons.undo),
               label: const Text('إرجاع بضاعة للتاجر'),
             ),
@@ -117,10 +145,7 @@ class TraderScreen extends StatelessWidget {
           if (rows.isEmpty)
             const EmptyState(icon: Icons.receipt_long_outlined, text: 'سجّل استلام بضاعة الصباح من التاجر'),
           for (final d in days)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: _dayGroup(context, t, d, byDay[d]!),
-            ),
+            Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: _dayGroup(context, t, d, byDay[d]!)),
         ],
       ),
     );
@@ -130,22 +155,33 @@ class TraderScreen extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final endBal = rows.last.balanceAfter;
     return Card(
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Container(
-          padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
-          decoration: BoxDecoration(
-            color: cs.surfaceContainerHighest.withValues(alpha: 0.45),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHighest.withValues(alpha: 0.45),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+            ),
+            child: Row(
+              children: [
+                Text(relativeDay(day), style: const TextStyle(fontWeight: FontWeight.w700)),
+                const Spacer(),
+                Text('عليك ', style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12.5)),
+                Text(
+                  money(endBal),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: endBal > 0 ? debtColor(context) : paidColor(context),
+                  ),
+                ),
+              ],
+            ),
           ),
-          child: Row(children: [
-            Text(relativeDay(day), style: const TextStyle(fontWeight: FontWeight.w800)),
-            const Spacer(),
-            Text('عليك ', style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12.5)),
-            Text(money(endBal), style: TextStyle(fontWeight: FontWeight.w800, color: endBal > 0 ? debtColor(context) : paidColor(context))),
-          ]),
-        ),
-        for (final r in rows) _tile(context, t, r.tx),
-      ]),
+          for (final r in rows) _tile(context, t, r.tx),
+        ],
+      ),
     );
   }
 
@@ -158,14 +194,23 @@ class TraderScreen extends StatelessWidget {
     };
     return ListTile(
       dense: true,
-      leading: CircleAvatar(radius: 17, backgroundColor: color.withValues(alpha: 0.12), child: Icon(icon, size: 18, color: color)),
-      title: Text(x.type.label, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+      leading: CircleAvatar(
+        radius: 17,
+        backgroundColor: color.withValues(alpha: 0.12),
+        child: Icon(icon, size: 18, color: color),
+      ),
+      title: Text(x.type.label, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
       subtitle: Text(
-        x.type.hasLines ? x.lines.map((l) => '${l.name} ${qtyText(l.qty)}').join('، ') : (x.note.isEmpty ? timeOf(x.createdAt) : x.note),
+        x.type.hasLines
+            ? x.lines.map((l) => '${l.name} ${qtyText(l.qty)}').join('، ')
+            : (x.note.isEmpty ? timeOf(x.createdAt) : x.note),
         style: const TextStyle(fontSize: 13),
       ),
-      trailing: Text('${x.type.sign > 0 ? '+' : '−'}${money(x.amount)}',
-          textDirection: TextDirection.ltr, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15.5, color: color)),
+      trailing: Text(
+        '${x.type.sign > 0 ? '+' : '−'}${money(x.amount)}',
+        textDirection: TextDirection.ltr,
+        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15.5, color: color),
+      ),
       onTap: () async {
         if (x.type.hasLines) {
           await Navigator.push(
@@ -184,10 +229,20 @@ class TraderScreen extends StatelessWidget {
           final v = await askMoney(context, 'تعديل الدفعة (اكتب 0 للحذف)', initial: x.amount);
           if (v == null) return;
           if (v <= 0) {
-            await store.deleteTraderTx(x.id);
+            final old = await store.deleteTraderTx(x.id);
+            if (old != null && context.mounted) undoToast(context, 'حُذفت الدفعة', () => store.saveTraderTx(old));
           } else {
-            await store.saveTraderTx(TraderTx(
-                id: x.id, traderId: x.traderId, type: x.type, day: x.day, createdAt: x.createdAt, amount: v, note: x.note));
+            await store.saveTraderTx(
+              TraderTx(
+                id: x.id,
+                traderId: x.traderId,
+                type: x.type,
+                day: x.day,
+                createdAt: x.createdAt,
+                amount: v,
+                note: x.note,
+              ),
+            );
           }
         }
       },
@@ -195,8 +250,7 @@ class TraderScreen extends StatelessWidget {
   }
 
   Future<void> _pickup(BuildContext context, Store store, Trader t) async {
-    final prev = store.traderTxs.where((x) => x.type == TraderTxType.pickup && x.traderId == t.id && x.day.compareTo(store.day) < 0).toList()
-      ..sort((a, b) => b.day.compareTo(a.day));
+    final prev = store.lastPickupBefore(t.id, store.day);
     await Navigator.push(
       context,
       MaterialPageRoute(
@@ -204,7 +258,7 @@ class TraderScreen extends StatelessWidget {
           mode: LinesMode.pickup,
           day: store.day,
           trader: t,
-          prefill: prev.isEmpty ? null : {for (final l in prev.first.lines) l.productId: l.qty},
+          prefill: prev == null ? null : {for (final l in prev.lines) l.productId: l.qty},
         ),
       ),
     );
@@ -219,19 +273,30 @@ class TraderScreen extends StatelessWidget {
           final a = parseMoney(ctl.text) ?? 0;
           return AlertDialog(
             title: const Text('دفعة للتاجر'),
-            content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              KvRow('عليك الآن', bal, bold: true, color: debtColor(ctx)),
-              const SizedBox(height: 10),
-              NumberField(controller: ctl, autofocus: true, big: true, onChanged: (_) => setS(() {})),
-              const SizedBox(height: 8),
-              Wrap(spacing: 6, children: [
-                if (bal > 0) ActionChip(label: Text('الكل ${money(bal)}'), onPressed: () => setS(() => ctl.text = '$bal')),
-                if (yesterday > 0 && yesterday < bal)
-                  ActionChip(label: Text('حساب أمس ${money(yesterday)}'), onPressed: () => setS(() => ctl.text = '$yesterday')),
-              ]),
-              const SizedBox(height: 8),
-              Text('يبقى عليك: ${money(bal - a)}', style: const TextStyle(fontWeight: FontWeight.w800)),
-            ]),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                KvRow('عليك الآن', bal, bold: true, color: debtColor(ctx)),
+                const SizedBox(height: 10),
+                NumberField(controller: ctl, autofocus: true, big: true, onChanged: (_) => setS(() {})),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  children: [
+                    if (bal > 0)
+                      ActionChip(label: Text('الكل ${money(bal)}'), onPressed: () => setS(() => ctl.text = '$bal')),
+                    if (yesterday > 0 && yesterday < bal)
+                      ActionChip(
+                        label: Text('حساب أمس ${money(yesterday)}'),
+                        onPressed: () => setS(() => ctl.text = '$yesterday'),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text('يبقى عليك: ${money(bal - a)}', style: const TextStyle(fontWeight: FontWeight.w700)),
+              ],
+            ),
             actions: [
               TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
               FilledButton(onPressed: a > 0 ? () => Navigator.pop(ctx, a) : null, child: const Text('تسجيل')),
@@ -241,14 +306,9 @@ class TraderScreen extends StatelessWidget {
       ),
     );
     if (r == null || r <= 0) return;
-    await store.saveTraderTx(TraderTx(
-      id: newId(),
-      traderId: t.id,
-      type: TraderTxType.payment,
-      day: store.day,
-      createdAt: nowMs(),
-      amount: r,
-    ));
+    await store.saveTraderTx(
+      TraderTx(id: newId(), traderId: t.id, type: TraderTxType.payment, day: store.day, createdAt: nowMs(), amount: r),
+    );
   }
 
   Future<void> _editTrader(BuildContext context, Store store, Trader t) async {
@@ -260,13 +320,23 @@ class TraderScreen extends StatelessWidget {
       builder: (ctx) => AlertDialog(
         title: const Text('بيانات التاجر'),
         content: SingleChildScrollView(
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            TextField(controller: name, decoration: const InputDecoration(labelText: 'اسم التاجر / المؤسسة')),
-            const SizedBox(height: 10),
-            TextField(controller: phone, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'الجوال')),
-            const SizedBox(height: 10),
-            NumberField(controller: ob, label: 'مبلغ سابق عليك قبل البرنامج'),
-          ]),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: name,
+                decoration: const InputDecoration(labelText: 'اسم التاجر / المؤسسة'),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: phone,
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(labelText: 'الجوال'),
+              ),
+              const SizedBox(height: 10),
+              NumberField(controller: ob, label: 'مبلغ سابق عليك قبل البرنامج'),
+            ],
+          ),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
