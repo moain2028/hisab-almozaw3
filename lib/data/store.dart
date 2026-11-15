@@ -204,6 +204,9 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
 
   T? meta<T>(String key) => _meta.get(key) as T?;
 
+  /// كتابة إعدادات داخلية (ترخيص/تحديث) بدون إعادة بناء الواجهة كلها
+  Future<void> putMetaSilently(Map<String, Object?> m) => _meta.putAll(m);
+
   Future<void> setMeta(String key, Object? value) async {
     await _meta.put(key, value);
     notifyListeners();
@@ -331,6 +334,16 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
 
   Product? product(String id) => _products[id];
 
+  /// البحث عن صنف بالباركود (المخفية أيضاً، لتنبيه المستخدم بدل إنشاء مكرر)
+  Product? productByBarcode(String code) {
+    final c = code.trim();
+    if (c.isEmpty) return null;
+    for (final p in _products.values) {
+      if (p.barcode == c) return p;
+    }
+    return null;
+  }
+
   Future<void> saveProduct(Product p) async {
     _products[p.id] = p;
     _productsSorted = null;
@@ -339,11 +352,19 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     await _stamp();
   }
 
-  Future<void> addProduct(String name, String unit, int sell, int cost) {
+  Future<Product> addProduct(String name, String unit, int sell, int cost, {String barcode = ''}) async {
     final maxOrder = _products.values.fold<int>(0, (m, p) => p.sortOrder > m ? p.sortOrder : m);
-    return saveProduct(
-      Product(id: newId(), name: name, unit: unit, sellPrice: sell, costPrice: cost, sortOrder: maxOrder + 1),
+    final p = Product(
+      id: newId(),
+      name: name,
+      unit: unit,
+      sellPrice: sell,
+      costPrice: cost,
+      sortOrder: maxOrder + 1,
+      barcode: barcode.trim(),
     );
+    await saveProduct(p);
+    return p;
   }
 
   Future<void> reorderProducts(List<Product> ordered) async {

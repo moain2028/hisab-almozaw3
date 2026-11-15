@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../core/format.dart';
 import '../data/store.dart';
 import '../models/models.dart';
+import '../ui/shell.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'shop_detail_screen.dart';
@@ -50,6 +51,7 @@ class _ShopsScreenState extends State<ShopsScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: const MenuButton(),
         title: const Text('البقالات'),
         actions: [
           IconButton(
@@ -60,6 +62,7 @@ class _ShopsScreenState extends State<ShopsScreen> {
             }),
             icon: Icon(reorder ? Icons.check : Icons.swap_vert),
           ),
+          const SettingsButton(),
         ],
       ),
       floatingActionButton: reorder

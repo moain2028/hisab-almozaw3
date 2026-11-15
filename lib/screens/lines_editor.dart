@@ -8,6 +8,7 @@ import '../models/models.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'products_screen.dart';
+import 'scan_screen.dart';
 
 enum LinesMode { delivery, shopReturn, pickup, traderReturn }
 
@@ -115,6 +116,19 @@ class _LinesEditorScreenState extends State<LinesEditorScreen> {
     final v = roundQty((qty[id] ?? 0) - step);
     qty[id] = v < 0 ? 0 : v;
   });
+
+  /// مسح باركود: يزيد كمية الصنف بواحد (مسح متكرر = عدّ سريع للكراتين)
+  Future<void> _scanAdd() async {
+    final code = await scanBarcode(context, title: 'امسح الصنف لإضافة 1');
+    if (code == null || !mounted) return;
+    final i = items.indexWhere((p) => p.barcode == code);
+    if (i < 0) {
+      toast(context, 'الباركود غير مسجل لأي صنف. سجّله من شاشة الأصناف.');
+      return;
+    }
+    _add(items[i].id, 1);
+    toast(context, '${items[i].name}: ${qtyText(qty[items[i].id] ?? 0)}');
+  }
 
   int get total {
     var t = 0;
@@ -236,6 +250,12 @@ class _LinesEditorScreenState extends State<LinesEditorScreen> {
             ],
           ),
           actions: [
+            if (items.any((p) => p.barcode.isNotEmpty))
+              IconButton(
+                tooltip: 'مسح باركود (+1)',
+                icon: const Icon(Icons.qr_code_scanner_rounded),
+                onPressed: _scanAdd,
+              ),
             if (isEdit)
               IconButton(
                 tooltip: 'حذف العملية',

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../core/format.dart';
 import '../data/ledger.dart';
 import '../data/store.dart';
+import '../ui/shell.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'today_screen.dart';
@@ -47,7 +48,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('التقارير والأرباح')),
+      appBar: AppBar(
+        leading: const MenuButton(),
+        title: const Text('التقارير والأرباح'),
+        actions: const [SettingsButton()],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'exp',
         onPressed: () async {
@@ -105,7 +110,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('صافي الربح', style: TextStyle(color: cs.onPrimary.withValues(alpha: 0.85))),
-                  MoneyText(r.netProfit, size: 34, color: cs.onPrimary, showCurrency: true),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: AlignmentDirectional.centerStart,
+                    child: MoneyText(r.netProfit, size: 34, color: cs.onPrimary, showCurrency: true),
+                  ),
                   Divider(color: cs.onPrimary.withValues(alpha: 0.3), height: 22),
                   _line(context, 'المبيعات (العطاء)', r.delivered),
                   if (r.returned > 0) _line(context, 'المرتجعات', -r.returned),

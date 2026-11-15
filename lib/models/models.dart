@@ -75,6 +75,7 @@ class Product {
     this.unit = 'كرتون',
     this.sellPrice = 0,
     this.costPrice = 0,
+    this.barcode = '',
     this.sortOrder = 0,
     this.active = true,
   });
@@ -82,6 +83,9 @@ class Product {
   final String id;
   String name;
   String unit;
+
+  /// باركود العبوة (اختياري) — للإضافة والبحث بالكاميرا
+  String barcode;
 
   /// سعر البيع للبقالة
   int sellPrice;

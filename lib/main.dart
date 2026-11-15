@@ -6,14 +6,19 @@ import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
+import 'core/license_service.dart';
+import 'core/update_service.dart';
 import 'data/backup_service.dart';
 import 'data/store.dart';
+import 'screens/license_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/reports_screen.dart';
-import 'screens/settings_screen.dart';
 import 'screens/shops_screen.dart';
 import 'screens/today_screen.dart';
 import 'screens/trader_screen.dart';
+import 'screens/update_screen.dart';
+import 'ui/app_drawer.dart';
+import 'ui/shell.dart';
 import 'ui/theme.dart';
 
 Future<void> main() async {
@@ -46,9 +51,18 @@ Future<void> main() async {
   store
     ..onDataChanged = backup.scheduleAuto
     ..attachLifecycle();
-  WidgetsBinding.instance.addObserver(_BackupLifecycle(backup));
-  // نسخة عند الفتح إن وُجدت تغييرات لم تُنسخ (بعد أول إطار حتى لا تبطئ الإقلاع)
-  WidgetsBinding.instance.addPostFrameCallback((_) => unawaited(backup.runAuto()));
+
+  // الترخيص عن بعد: يقرأ الحالة المحفوظة فوراً (بدون انتظار الشبكة) ثم يفحص في الخلفية
+  final license = LicenseService(store);
+  await license.init();
+  final updates = UpdateService(store);
+
+  WidgetsBinding.instance.addObserver(_Lifecycle(backup, license));
+  // بعد أول إطار حتى لا تبطئ الإقلاع: نسخة احتياطية إن لزم + تنظيف ملفات تحديث قديمة
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    unawaited(backup.runAuto());
+    if (UpdateService.supported) unawaited(UpdateService.cleanup());
+  });
 
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(statusBarColor: Colors.transparent));
 
@@ -57,19 +71,23 @@ Future<void> main() async {
       providers: [
         ChangeNotifierProvider.value(value: store),
         Provider.value(value: backup),
+        ChangeNotifierProvider.value(value: license),
+        ChangeNotifierProvider.value(value: updates),
       ],
       child: const DistributorApp(),
     ),
   );
 }
 
-/// عند خروج المستخدم من التطبيق: نفّذ النسخة المعلّقة فوراً
-class _BackupLifecycle with WidgetsBindingObserver {
-  _BackupLifecycle(this.backup);
+/// الخروج: نفّذ النسخة المعلّقة فوراً · العودة: أعد فحص الترخيص (بحد أدنى 10 دقائق بين الفحوص)
+class _Lifecycle with WidgetsBindingObserver {
+  _Lifecycle(this.backup, this.license);
   final BackupService backup;
+  final LicenseService license;
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused) unawaited(backup.flushPending());
+    if (state == AppLifecycleState.resumed) unawaited(license.onResumed());
   }
 }
 
@@ -99,7 +117,7 @@ class DistributorApp extends StatelessWidget {
         data: MediaQuery.of(ctx).copyWith(textScaler: TextScaler.linear(scale)),
         child: child!,
       ),
-      home: onboarded ? const HomeShell() : const OnboardingScreen(),
+      home: LicenseGate(child: onboarded ? const HomeShell() : const OnboardingScreen()),
     );
   }
 }
@@ -116,7 +134,21 @@ class _HomeShellState extends State<HomeShell> {
   /// الصفحات تُبنى عند أول زيارة فقط (Lazy) ثم تبقى في الذاكرة للتنقل الفوري
   final _built = <int>{0};
 
-  static const _pages = <Widget>[TodayScreen(), ShopsScreen(), TraderTab(), ReportsScreen(), SettingsScreen()];
+  /// الشريط السفلي = عمل اليوم المتكرر فقط. كل ما سواه في القائمة الجانبية وزر ⚙
+  static const _pages = <Widget>[TodayScreen(), ShopsScreen(), TraderTab(), ReportsScreen()];
+
+  @override
+  void initState() {
+    super.initState();
+    // فحص التحديث التلقائي (مرة كل 24 ساعة، أندرويد فقط) بعد استقرار الواجهة
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!UpdateService.supported) return;
+      await Future<void>.delayed(const Duration(seconds: 3));
+      if (!mounted) return;
+      final r = await context.read<UpdateService>().autoCheck();
+      if (r != null && mounted) await showUpdateDialog(context, r);
+    });
+  }
 
   void _go(int i) {
     if (i == index) return;
@@ -130,12 +162,15 @@ class _HomeShellState extends State<HomeShell> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      // زر الرجوع في أندرويد: من أي تبويب يرجع لـ"اليوم" أولاً قبل الخروج
+      // زر الرجوع في أندرويد: يغلق القائمة أولاً، ثم يرجع لـ"اليوم"، ثم يخرج
       canPop: index == 0,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _go(0);
       },
       child: Scaffold(
+        key: shellScaffoldKey,
+        drawer: AppDrawer(current: index, onNavigate: _go),
+        drawerEdgeDragWidth: 24,
         body: SafeArea(
           bottom: false,
           child: IndexedStack(
@@ -153,23 +188,26 @@ class _HomeShellState extends State<HomeShell> {
           selectedIndex: index,
           onDestinationSelected: _go,
           destinations: const [
-            NavigationDestination(icon: Icon(Icons.today_outlined), selectedIcon: Icon(Icons.today), label: 'اليوم'),
+            NavigationDestination(
+              icon: Icon(Icons.today_outlined),
+              selectedIcon: Icon(Icons.today_rounded),
+              label: 'اليوم',
+            ),
             NavigationDestination(
               icon: Icon(Icons.storefront_outlined),
-              selectedIcon: Icon(Icons.storefront),
+              selectedIcon: Icon(Icons.storefront_rounded),
               label: 'البقالات',
             ),
             NavigationDestination(
               icon: Icon(Icons.local_shipping_outlined),
-              selectedIcon: Icon(Icons.local_shipping),
+              selectedIcon: Icon(Icons.local_shipping_rounded),
               label: 'التاجر',
             ),
             NavigationDestination(
               icon: Icon(Icons.insights_outlined),
-              selectedIcon: Icon(Icons.insights),
+              selectedIcon: Icon(Icons.insights_rounded),
               label: 'التقارير',
             ),
-            NavigationDestination(icon: Icon(Icons.tune_outlined), selectedIcon: Icon(Icons.tune), label: 'المزيد'),
           ],
         ),
       ),

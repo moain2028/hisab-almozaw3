@@ -5,6 +5,7 @@ import '../core/format.dart';
 import '../data/ledger.dart';
 import '../data/store.dart';
 import '../models/models.dart';
+import '../ui/shell.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'collect_sheet.dart';
@@ -34,6 +35,7 @@ class _TodayScreenState extends State<TodayScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: const MenuButton(),
         title: Text(store.distributorName.isEmpty ? 'حساب الموزع' : store.distributorName),
         actions: [
           IconButton(
@@ -41,6 +43,7 @@ class _TodayScreenState extends State<TodayScreen> {
             onPressed: () => openShopForm(context),
             icon: const Icon(Icons.add_business_outlined),
           ),
+          const SettingsButton(),
         ],
       ),
       // CustomScrollView: الرأس ثابت، وقائمة البقالات تُبنى بكسل (فقط الظاهر على الشاشة)
@@ -187,12 +190,9 @@ class _HeroCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [cs.primary, Color.lerp(cs.primary, Colors.black, 0.25)!],
-          begin: AlignmentDirectional.topStart,
-          end: AlignmentDirectional.bottomEnd,
-        ),
-        borderRadius: BorderRadius.circular(22),
+        gradient: heroGradient(cs),
+        borderRadius: BorderRadius.circular(Radii.lg),
+        boxShadow: [BoxShadow(color: cs.primary.withValues(alpha: .25), blurRadius: 18, offset: const Offset(0, 8))],
       ),
       child: DefaultTextStyle(
         style: TextStyle(color: cs.onPrimary, fontSize: 14),
@@ -204,7 +204,11 @@ class _HeroCard extends StatelessWidget {
               style: TextStyle(color: cs.onPrimary.withValues(alpha: 0.85), fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 2),
-            MoneyText(s.remainingEndOfDay, size: 36, color: cs.onPrimary, showCurrency: true),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: AlignmentDirectional.centerStart,
+              child: MoneyText(s.remainingEndOfDay, size: 36, color: cs.onPrimary, showCurrency: true),
+            ),
             const SizedBox(height: 12),
             ClipRRect(
               borderRadius: BorderRadius.circular(6),
@@ -244,7 +248,14 @@ class _HeroCard extends StatelessWidget {
             children: [
               Icon(icon, size: 14, color: on.withValues(alpha: 0.8)),
               const SizedBox(width: 3),
-              Text(label, style: TextStyle(fontSize: 12.5, color: on.withValues(alpha: 0.85))),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 12.5, color: on.withValues(alpha: 0.85)),
+                ),
+              ),
             ],
           ),
           FittedBox(

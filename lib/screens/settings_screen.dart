@@ -3,13 +3,18 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../core/format.dart';
+import '../core/license_service.dart';
+import '../core/update_service.dart';
 import '../data/store.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'backups_screen.dart';
 import 'products_screen.dart';
 import 'trader_screen.dart';
+import 'update_screen.dart';
 
+/// مركز الإعدادات — يُفتح من زر ⚙ في رأس كل شاشة رئيسية، ومن آخر القائمة الجانبية.
+/// الأقسام مرتّبة من الأكثر استخداماً للأقل: الحساب ← المظهر ← الحماية ← التحديث والترخيص ← متقدم.
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
@@ -21,11 +26,11 @@ class SettingsScreen extends StatelessWidget {
     final oldBackup = last == 0 || DateTime.now().millisecondsSinceEpoch - last > 3 * 86400000;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('المزيد')),
+      appBar: AppBar(title: const Text('الإعدادات')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
         children: [
-          const SectionTitle('البيانات الأساسية'),
+          const SectionTitle('الحساب والبيانات'),
           Card(
             child: Column(
               children: [
@@ -111,7 +116,7 @@ class SettingsScreen extends StatelessWidget {
               ),
             ),
           ),
-          const SectionTitle('النسخ الاحتياطي'),
+          const SectionTitle('الحماية والنسخ الاحتياطي'),
           Card(
             child: Column(
               children: [
@@ -151,7 +156,9 @@ class SettingsScreen extends StatelessWidget {
               ],
             ),
           ),
-          const SectionTitle('أخرى'),
+          const SectionTitle('التحديث والترخيص'),
+          const _RemoteCard(),
+          const SectionTitle('متقدم'),
           Card(
             child: Column(
               children: [
@@ -191,7 +198,7 @@ class SettingsScreen extends StatelessWidget {
           const SizedBox(height: 16),
           Center(
             child: Text(
-              'حساب الموزع · الإصدار 2.1 · ${store.recordCount} سجل',
+              'حساب الموزع · الإصدار $kAppVersion · ${store.recordCount} سجل',
               style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12.5),
             ),
           ),
@@ -239,5 +246,62 @@ class SettingsScreen extends StatelessWidget {
     } catch (e) {
       if (context.mounted) toast(context, 'النص غير صالح. تأكد أنك لصقت النسخة كاملة.');
     }
+  }
+}
+
+/// بطاقة التحديث عن بعد + حالة الترخيص
+class _RemoteCard extends StatelessWidget {
+  const _RemoteCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final lic = context.watch<LicenseService>();
+    final upd = context.watch<UpdateService>();
+    final st = lic.state;
+    final checked = lic.lastCheck;
+    return Card(
+      child: Column(
+        children: [
+          if (UpdateService.supported) ...[
+            ListTile(
+              leading: Badge(
+                isLabelVisible: upd.last?.available == true,
+                smallSize: 9,
+                child: const Icon(Icons.system_update_rounded),
+              ),
+              title: const Text('تحديث التطبيق', style: TextStyle(fontWeight: FontWeight.w700)),
+              subtitle: Text(
+                upd.last?.available == true
+                    ? 'الإصدار ${upd.last!.info!.version} متاح للتنزيل'
+                    : 'الإصدار الحالي $kAppVersion · يُفحص تلقائياً كل 24 ساعة',
+              ),
+              trailing: const Icon(Icons.chevron_left),
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UpdateScreen())),
+            ),
+            const Divider(height: 1),
+          ],
+          ListTile(
+            leading: Icon(
+              st.allowed ? Icons.verified_user_rounded : Icons.gpp_bad_rounded,
+              color: st.allowed ? paidColor(context) : debtColor(context),
+            ),
+            title: const Text('الترخيص', style: TextStyle(fontWeight: FontWeight.w700)),
+            subtitle: Text(
+              '${st.allowed ? 'مفعّل' : 'موقوف'}'
+              '${st.offline ? ' · بدون اتصال (آخر حالة معروفة)' : ''}'
+              '${checked == null ? '' : ' · آخر فحص ${relativeDay(dayKey(checked))} ${timeOf(checked.millisecondsSinceEpoch)}'}',
+            ),
+            trailing: IconButton(
+              tooltip: 'فحص الآن',
+              icon: const Icon(Icons.refresh_rounded),
+              onPressed: () async {
+                final r = await lic.refresh();
+                if (context.mounted) toast(context, r.offline ? 'لا يوجد اتصال، بقيت آخر حالة معروفة' : 'تم الفحص');
+              },
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

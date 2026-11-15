@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FileProvider للتحديث داخل التطبيق: APK يُنزَّل إلى cache/updates/ ويُفتح بمثبّت النظام -->
+<paths>
+    <cache-path name="updates" path="updates/" />
+</paths>

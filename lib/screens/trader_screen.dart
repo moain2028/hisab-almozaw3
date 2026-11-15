@@ -5,6 +5,7 @@ import '../core/format.dart';
 import '../data/ledger.dart';
 import '../data/store.dart';
 import '../models/models.dart';
+import '../ui/shell.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'lines_editor.dart';
@@ -56,6 +57,7 @@ class TraderScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
+        leading: isTab ? const MenuButton() : null,
         title: Text(isTab ? 'التاجر' : t.name),
         actions: [
           IconButton(
@@ -63,6 +65,7 @@ class TraderScreen extends StatelessWidget {
             icon: const Icon(Icons.edit_outlined),
             onPressed: () => _editTrader(context, store, t),
           ),
+          if (isTab) const SettingsButton(),
         ],
       ),
       body: ListView(
@@ -81,7 +84,14 @@ class TraderScreen extends StatelessWidget {
                       children: [
                         Icon(Icons.local_shipping, color: cs.tertiary),
                         const SizedBox(width: 8),
-                        Text(t.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17)),
+                        Expanded(
+                          child: Text(
+                            t.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17),
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 10),
@@ -89,11 +99,15 @@ class TraderScreen extends StatelessWidget {
                       bal > 0 ? 'عليك للتاجر' : (bal < 0 ? 'لك عند التاجر' : 'الحساب'),
                       style: TextStyle(color: cs.onSurfaceVariant, fontWeight: FontWeight.w600),
                     ),
-                    MoneyText(
-                      bal.abs(),
-                      size: 36,
-                      color: bal > 0 ? debtColor(context) : paidColor(context),
-                      showCurrency: true,
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: AlignmentDirectional.centerStart,
+                      child: MoneyText(
+                        bal.abs(),
+                        size: 36,
+                        color: bal > 0 ? debtColor(context) : paidColor(context),
+                        showCurrency: true,
+                      ),
                     ),
                     const Divider(height: 22),
                     KvRow('استلام ${relativeDay(day)}', todayPickup),

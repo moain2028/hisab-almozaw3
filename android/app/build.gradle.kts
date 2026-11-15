@@ -46,6 +46,11 @@ android {
         }
     }
 
+    // التطبيق عربي: نحذف ترجمات مكتبات AndroidX للّغات الأخرى (≈ 150–250 ك.ب)
+    androidResources {
+        localeFilters += listOf("ar", "en")
+    }
+
     buildTypes {
         release {
             signingConfig = if (keyProps.isNotEmpty()) signingConfigs.getByName("release") else signingConfigs.getByName("debug")
@@ -59,4 +64,9 @@ android {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    // FileProvider لفتح ملف التحديث بمثبّت النظام
+    implementation("androidx.core:core-ktx:1.13.1")
 }

@@ -58,7 +58,8 @@ class DayBar extends StatelessWidget {
                 if (d != null) store.setDay(dayKey(d));
               },
               child: Container(
-                height: 46,
+                height: 48,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: store.isToday ? cs.primaryContainer : AppColors.warn.withValues(alpha: 0.15),
@@ -69,12 +70,17 @@ class DayBar extends StatelessWidget {
                   children: [
                     Icon(Icons.calendar_month, size: 18, color: store.isToday ? cs.onPrimaryContainer : AppColors.warn),
                     const SizedBox(width: 8),
-                    Text(
-                      store.isToday ? 'اليوم · ${arDay(day)}' : arDay(day),
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 15,
-                        color: store.isToday ? cs.onPrimaryContainer : AppColors.warn,
+                    // Flexible + ellipsis: التاريخ الطويل أو الخط الكبير لا يتجاوز العرض أبداً
+                    Flexible(
+                      child: Text(
+                        store.isToday ? 'اليوم · ${arDay(day)}' : arDay(day),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
+                          color: store.isToday ? cs.onPrimaryContainer : AppColors.warn,
+                        ),
                       ),
                     ),
                   ],

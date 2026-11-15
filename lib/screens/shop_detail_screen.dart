@@ -116,8 +116,13 @@ class ShopDetailScreen extends StatelessWidget {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      MoneyText(bal.abs(), size: 38, color: balanceColor(context, bal), showCurrency: true),
-                      const Spacer(),
+                      Expanded(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: AlignmentDirectional.centerStart,
+                          child: MoneyText(bal.abs(), size: 38, color: balanceColor(context, bal), showCurrency: true),
+                        ),
+                      ),
                       if (bal == 0) Icon(Icons.verified, color: paidColor(context), size: 32),
                     ],
                   ),

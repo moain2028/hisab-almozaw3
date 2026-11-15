@@ -10,6 +10,28 @@ void haptic(BuildContext c, {bool strong = false}) {
   strong ? HapticFeedback.mediumImpact() : HapticFeedback.selectionClick();
 }
 
+/// رقم الإصدار المعروض (يطابق pubspec.yaml)
+const kAppVersion = '2.2.0';
+
+/// شبكة مسافات 4dp — كل الهوامش في التطبيق من هذه القيم فقط
+abstract final class Space {
+  static const double xs = 4;
+  static const double sm = 8;
+  static const double md = 12;
+  static const double lg = 16;
+  static const double xl = 24;
+  static const double xxl = 32;
+}
+
+/// أنصاف أقطار موحّدة
+abstract final class Radii {
+  static const double sm = 10;
+  static const double md = 14;
+  static const double lg = 20;
+  static const double xl = 28;
+  static const double pill = 999;
+}
+
 /// أرقام بعرض ثابت حتى لا تهتز الأعمدة عند تغيّر القيم
 const tabular = [FontFeature.tabularFigures()];
 
@@ -22,7 +44,17 @@ class AppColors {
   static const paid = Color(0xFF2E7D32);
   static const paidDark = Color(0xFFA5D6A7);
   static const warn = Color(0xFFC25400); // تباين 4.6:1 على الأبيض (WCAG AA)
+  static const deep = Color(0xFF0B3D3A); // تدرّج الترويسات الفاخرة
+  static const gold = Color(0xFFC9A227); // لمسة ذهبية للتمييز (زخرفي فقط، لا نص عليه)
+  static const bgLight = Color(0xFFF3F6F5);
 }
+
+/// تدرّج البطاقات البطلة والترويسات
+LinearGradient heroGradient(ColorScheme cs) => LinearGradient(
+  colors: [cs.primary, Color.lerp(cs.primary, AppColors.deep, .75)!],
+  begin: AlignmentDirectional.topStart,
+  end: AlignmentDirectional.bottomEnd,
+);
 
 bool isDark(BuildContext c) => Theme.of(c).brightness == Brightness.dark;
 Color debtColor(BuildContext c) => isDark(c) ? AppColors.debtDark : AppColors.debt;
@@ -36,12 +68,20 @@ String balanceLabel(int v) => v > 0 ? 'عليه' : (v < 0 ? 'له' : 'مسدّد
 
 ThemeData buildTheme(Brightness b) {
   final cs = ColorScheme.fromSeed(seedColor: AppColors.primary, brightness: b);
-  final base = ThemeData(useMaterial3: true, colorScheme: cs, brightness: b, fontFamily: 'Plex');
+  final base = ThemeData(
+    useMaterial3: true,
+    colorScheme: cs,
+    brightness: b,
+    fontFamily: 'Plex',
+    // أهداف لمس ≥ 48dp على كل المنصات (حتى في معاينة الويب)
+    materialTapTargetSize: MaterialTapTargetSize.padded,
+    visualDensity: VisualDensity.standard,
+  );
   return base.copyWith(
-    scaffoldBackgroundColor: b == Brightness.light ? const Color(0xFFF4F7F6) : cs.surface,
+    scaffoldBackgroundColor: b == Brightness.light ? AppColors.bgLight : cs.surface,
     appBarTheme: AppBarTheme(
       centerTitle: false,
-      backgroundColor: b == Brightness.light ? const Color(0xFFF4F7F6) : cs.surface,
+      backgroundColor: b == Brightness.light ? AppColors.bgLight : cs.surface,
       surfaceTintColor: Colors.transparent,
       titleTextStyle: TextStyle(fontSize: 21, fontWeight: FontWeight.w700, color: cs.onSurface),
     ),
@@ -66,19 +106,43 @@ ThemeData buildTheme(Brightness b) {
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
+        minimumSize: const Size(64, 48),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
+        minimumSize: const Size(64, 48),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
       ),
     ),
     dialogTheme: DialogThemeData(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22))),
+    drawerTheme: DrawerThemeData(
+      width: 304,
+      backgroundColor: b == Brightness.light ? Colors.white : cs.surfaceContainerLow,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadiusDirectional.horizontal(end: Radius.circular(Radii.xl)),
+      ),
+    ),
+    chipTheme: ChipThemeData(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.pill)),
+      labelStyle: const TextStyle(fontWeight: FontWeight.w600),
+    ),
+    listTileTheme: const ListTileThemeData(minVerticalPadding: 10, horizontalTitleGap: 14),
+    bottomSheetTheme: const BottomSheetThemeData(
+      showDragHandle: true,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(Radii.xl))),
+    ),
+    floatingActionButtonTheme: FloatingActionButtonThemeData(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.lg)),
+    ),
     navigationBarTheme: NavigationBarThemeData(
       height: 68,
+      elevation: 0,
+      backgroundColor: b == Brightness.light ? Colors.white : cs.surfaceContainer,
+      indicatorColor: cs.primaryContainer,
       labelTextStyle: WidgetStateProperty.all(const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
     ),
     snackBarTheme: const SnackBarThemeData(behavior: SnackBarBehavior.floating),
