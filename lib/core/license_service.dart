@@ -2,7 +2,12 @@
 ///
 /// الملف: `<dist-repo>/hisab-almozaw3/license.json`
 /// ```json
-/// { "active": true, "code": "HISAB-0000", "message": "نص يظهر عند القفل" }
+/// { "active": true, "codeHash": "<sha256>", "message": "نص يظهر عند القفل" }
+/// ```
+/// **الكود نفسه لا يُنشر أبداً**: الملف العام يحمل `codeHash = sha256("hisab-almozaw3:" + CODE)` فقط،
+/// والكود الحقيقي محفوظ في المستودع الخاص. يولَّد بـ `tool/license_hash.py CODE`.
+/// (حقل `code` النصي ما زال مقبولاً للتوافق، ويُحوَّل لهاش فوراً ولا يُخزَّن نصاً.)
+/// ```
 /// ```
 ///
 /// | التعديل في الملف        | النتيجة في التطبيق                                       |
@@ -20,6 +25,9 @@ library;
 
 import 'dart:async';
 
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 
 import '../data/store.dart';
@@ -109,14 +117,14 @@ class LicenseService extends ChangeNotifier {
     final d = remote.data!;
     final active = d['active'] == true;
     final msg = '${d['message'] ?? ''}';
-    final code = '${d['code'] ?? ''}'.trim().toUpperCase();
+    final code = codeHashOf(d);
     await _put({_kSeen: true, _kDeleted: false, _kMessage: msg, _kCode: code, _kLastCheck: _now});
 
     if (active) {
       await _put({_kBlocked: false});
       return LicenseState(allowed: true, message: msg);
     }
-    final saved = (store.meta<String>(_kActivated) ?? '').toUpperCase();
+    final saved = store.meta<String>(_kActivated) ?? '';
     final unlocked = code.isNotEmpty && saved == code;
     await _put({_kBlocked: !unlocked});
     return LicenseState(allowed: unlocked, message: msg, codeAccepted: code.isNotEmpty);
@@ -127,11 +135,11 @@ class LicenseService extends ChangeNotifier {
     final remote = await fetcher.fetch(file);
     if (remote != null && remote.notFound) return false;
     if (remote?.data != null) {
-      await _put({_kCode: '${remote!.data!['code'] ?? ''}'.trim().toUpperCase()});
+      await _put({_kCode: codeHashOf(remote!.data!)});
     }
     final code = store.meta<String>(_kCode) ?? '';
-    if (code.isEmpty) return false;
-    final ok = input.trim().toUpperCase() == code;
+    if (code.isEmpty || input.trim().isEmpty) return false;
+    final ok = hashCode_(input) == code;
     if (ok) {
       await _put({_kActivated: code, _kBlocked: false});
       _state = const LicenseState(allowed: true);
@@ -149,6 +157,20 @@ class LicenseService extends ChangeNotifier {
       codeAccepted: !deleted && (store.meta<String>(_kCode) ?? '').isNotEmpty,
       offline: offline,
     );
+  }
+
+  /// الملح ثابت لكل تطبيق: نفس الكود في تطبيق آخر يعطي هاشاً مختلفاً
+  static const salt = 'hisab-almozaw3:';
+
+  /// هاش كود مُدخل (بلا حساسية لحالة الحروف والمسافات)
+  static String hashCode_(String code) => sha256.convert(utf8.encode('$salt${code.trim().toUpperCase()}')).toString();
+
+  /// الهاش من الملف البعيد: `codeHash` مفضّل، وإلا `code` نصي (توافق) يُحوَّل لهاش
+  static String codeHashOf(Map<String, dynamic> d) {
+    final h = '${d['codeHash'] ?? ''}'.trim().toLowerCase();
+    if (RegExp(r'^[0-9a-f]{64}$').hasMatch(h)) return h;
+    final c = '${d['code'] ?? ''}'.trim();
+    return c.isEmpty ? '' : hashCode_(c);
   }
 
   static int get _now => DateTime.now().millisecondsSinceEpoch;

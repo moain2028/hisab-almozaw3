@@ -52,3 +52,4 @@ app.*.map.json
 # ملفات محلية
 server.log
 *.hisab
+/dist/

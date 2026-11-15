@@ -103,6 +103,15 @@ void main() {
       expect(await l.unlock('NEW999'), isTrue);
     });
 
+    test('codeHash فقط (بلا كود نصي في الملف العام) يفتح بالكود الصحيح', () async {
+      f.next = RemoteFile.ok({'active': false, 'codeHash': LicenseService.hashCode_('SECRET-1'), 'message': ''});
+      expect((await l.check()).allowed, isFalse);
+      expect(await l.unlock('secret-2'), isFalse);
+      expect(await l.unlock(' secret-1 '), isTrue);
+      // لا يُخزَّن الكود نصاً في الجهاز
+      expect(store.meta<String>('lic_activated'), isNot(contains('SECRET')));
+    });
+
     test('حذف الملف بعد رؤيته ⇒ قفل نهائي ولا يقبل أي كود', () async {
       f.next = lic(true);
       await l.check();
