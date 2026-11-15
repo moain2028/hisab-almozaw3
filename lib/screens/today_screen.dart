@@ -1,21 +1,31 @@
+/// today_screen.dart — الرئيسية: ثابتة، مختصرة، بلا قوائم طويلة.
+///
+/// الهيكل (من الأعلى للأسفل، كل شيء يظهر بدون تمرير على 360×740):
+///   1. شريط اليوم
+///   2. البطاقة البطلة: الباقي عند البقالات + العطاء/المحصّل/في جيبك
+///   3. إجراءات سريعة (شبكة 3×2): عطاء · تحصيل · استلام · مصروف · صنف جديد · بقالة جديدة
+///   4. تقدّم اليوم: عطاء X/Y · تحصيل X/Y → يفتح «سجل اليوم»
+///   5. البضاعة في السيارة (إن وُجد استلام)
+/// القوائم الطويلة لها صفحاتها: سجل اليوم، البقالات، التاجر، التقارير.
+library;
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../core/format.dart';
-import '../data/ledger.dart';
 import '../data/store.dart';
 import '../models/models.dart';
 import '../ui/shell.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
-import 'collect_sheet.dart';
+import 'day_log_screen.dart';
+import 'day_widgets.dart';
 import 'lines_editor.dart';
-import 'shop_detail_screen.dart';
+import 'product_form.dart';
 import 'shop_form.dart';
 import 'trader_screen.dart';
 
-/// الشاشة الرئيسية: يوم العمل كاملاً
-/// الصباح: عطاء للبقالات ، الليل: تحصيل ومعرفة الباقي.
+export 'day_widgets.dart' show ExpenseDialog;
+
 class TodayScreen extends StatefulWidget {
   const TodayScreen({super.key});
   @override
@@ -23,126 +33,112 @@ class TodayScreen extends StatefulWidget {
 }
 
 class _TodayScreenState extends State<TodayScreen> {
-  /// false = وضع العطاء (الصباح) ، true = وضع التحصيل (الليل)
-  bool collectMode = DateTime.now().hour >= 15;
-
   @override
   Widget build(BuildContext context) {
     final store = context.watch<Store>();
     final shops = store.shops;
     final s = store.summary();
     final cs = Theme.of(context).colorScheme;
+    final night = DateTime.now().hour >= 15;
 
     return Scaffold(
       appBar: AppBar(
         leading: const MenuButton(),
         title: Text(store.distributorName.isEmpty ? 'حساب الموزع' : store.distributorName),
-        actions: [
-          IconButton(
-            tooltip: 'إضافة بقالة',
-            onPressed: () => openShopForm(context),
-            icon: const Icon(Icons.add_business_outlined),
-          ),
-          const SettingsButton(),
-        ],
+        actions: const [SettingsButton()],
       ),
-      // CustomScrollView: الرأس ثابت، وقائمة البقالات تُبنى بكسل (فقط الظاهر على الشاشة)
-      body: CustomScrollView(
-        slivers: [
-          SliverList.list(
-            children: [
-              const DayBar(),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: _HeroCard(summary: s, shopsCount: shops.length),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: StatBox(
-                        label: 'استلام من التاجر',
-                        value: s.picked,
-                        icon: Icons.local_shipping_outlined,
-                        color: cs.tertiary,
-                        onTap: () => _pickup(context, store),
-                        sub: s.picked == 0 ? 'اضغط للتسجيل' : null,
-                      ),
-                    ),
-                    Expanded(
-                      child: StatBox(
-                        label: 'المصاريف',
-                        value: s.expenses,
-                        icon: Icons.local_gas_station_outlined,
-                        color: AppColors.warn,
-                        onTap: () => _addExpense(context, store),
-                        sub: s.expenses == 0 ? 'اضغط للإضافة' : null,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (store.products.isNotEmpty && s.picked > 0) _StockCard(rows: store.stockOf()),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
-                child: SegmentedButton<bool>(
-                  style: SegmentedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(50),
-                    textStyle: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700),
-                  ),
-                  segments: [
-                    ButtonSegment(
-                      value: false,
-                      icon: const Icon(Icons.wb_sunny_outlined),
-                      label: Text('العطاء (${s.deliveredShops.length}/${shops.length})'),
-                    ),
-                    ButtonSegment(
-                      value: true,
-                      icon: const Icon(Icons.nightlight_outlined),
-                      label: Text('التحصيل (${s.paidShops.length})'),
-                    ),
-                  ],
-                  selected: {collectMode},
-                  onSelectionChanged: (v) => setState(() => collectMode = v.first),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(18, 4, 18, 4),
-                child: Text(
-                  collectMode
-                      ? 'اضغط على البقالة لتسجيل ما دفعه، ويظهر لك الباقي عنده.'
-                      : 'اضغط على البقالة لتسجيل ما أعطيته اليوم.',
-                  style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13),
-                ),
-              ),
-              if (shops.isEmpty)
-                EmptyState(
-                  icon: Icons.storefront_outlined,
-                  text: 'ابدأ بإضافة البقالات التي توزع عليها',
-                  action: FilledButton.icon(
-                    onPressed: () => openShopForm(context),
-                    icon: const Icon(Icons.add),
-                    label: const Text('إضافة بقالة'),
-                  ),
-                ),
-            ],
+      body: ListView(
+        padding: const EdgeInsets.only(bottom: Space.xl),
+        children: [
+          const DayBar(),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: Space.md),
+            child: HeroCard(summary: s, shopsCount: shops.length),
           ),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
-            sliver: SliverList.builder(
-              itemCount: shops.length,
-              itemBuilder: (_, i) {
-                final shop = shops[i];
-                // RepaintBoundary: إعادة رسم بطاقة لا تعيد رسم جاراتها
-                return RepaintBoundary(
-                  child: collectMode
-                      ? _CollectTile(key: ValueKey('c${shop.id}'), shop: shop, day: store.dayOf(shop))
-                      : _DeliverTile(key: ValueKey('d${shop.id}'), shop: shop, day: store.dayOf(shop)),
-                );
-              },
+          const SizedBox(height: Space.md),
+
+          // ---------------- إجراءات سريعة
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: Space.md),
+            child: _QuickGrid(
+              items: [
+                _Quick(
+                  Icons.wb_sunny_rounded,
+                  'عطاء',
+                  cs.primary,
+                  () => openDayLog(context, DayMode.deliver),
+                  highlight: !night,
+                ),
+                _Quick(
+                  Icons.payments_rounded,
+                  'تحصيل',
+                  paidColor(context),
+                  () => openDayLog(context, DayMode.collect),
+                  highlight: night,
+                ),
+                _Quick(Icons.local_shipping_rounded, 'استلام', cs.tertiary, () => _pickup(context, store)),
+                _Quick(Icons.receipt_long_rounded, 'مصروف', AppColors.warn, () => _addExpense(context, store)),
+                _Quick(Icons.add_box_rounded, 'صنف جديد', cs.secondary, () => openProductForm(context)),
+                _Quick(Icons.add_business_rounded, 'بقالة جديدة', cs.secondary, () => openShopForm(context)),
+              ],
             ),
           ),
+
+          // ---------------- تقدّم اليوم → سجل اليوم
+          const SectionTitle('تقدّم اليوم'),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: Space.md),
+            child: Card(
+              margin: EdgeInsets.zero,
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                children: [
+                  _ProgressRow(
+                    icon: Icons.wb_sunny_outlined,
+                    label: 'العطاء',
+                    done: s.deliveredShops.length,
+                    total: shops.length,
+                    color: cs.primary,
+                    onTap: () => openDayLog(context, DayMode.deliver),
+                  ),
+                  const Divider(height: 1, indent: Space.lg, endIndent: Space.lg),
+                  _ProgressRow(
+                    icon: Icons.nightlight_outlined,
+                    label: 'التحصيل',
+                    done: s.paidShops.length,
+                    total: shops.length,
+                    color: paidColor(context),
+                    onTap: () => openDayLog(context, DayMode.collect),
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    onTap: () => openDayLog(context, night ? DayMode.collect : DayMode.deliver),
+                    leading: Icon(Icons.list_alt_rounded, color: cs.primary),
+                    title: Text(
+                      'فتح سجل اليوم',
+                      style: TextStyle(fontWeight: FontWeight.w700, color: cs.primary),
+                    ),
+                    subtitle: Text('${shops.length} بقالة · بحث وفلترة'),
+                    trailing: Icon(Icons.chevron_left_rounded, color: cs.primary),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (shops.isEmpty)
+            EmptyState(
+              icon: Icons.storefront_outlined,
+              text: 'ابدأ بإضافة البقالات التي توزع عليها',
+              action: FilledButton.icon(
+                onPressed: () => openShopForm(context),
+                icon: const Icon(Icons.add),
+                label: const Text('إضافة بقالة'),
+              ),
+            ),
+          if (store.products.isNotEmpty && s.picked > 0) ...[
+            const SizedBox(height: Space.sm),
+            StockCard(rows: store.stockOf()),
+          ],
         ],
       ),
     );
@@ -172,386 +168,120 @@ class _TodayScreenState extends State<TodayScreen> {
   }
 }
 
-// ------------------------------------------------------------------ بطاقة الملخص
-
-class _HeroCard extends StatelessWidget {
-  const _HeroCard({required this.summary, required this.shopsCount});
-  final DaySummary summary;
-  final int shopsCount;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final s = summary;
-    final netDelivered = s.delivered - s.returned;
-    // نسبة ما حُصّل من إجمالي المطلوب اليوم
-    final base = s.collected + (s.remainingEndOfDay > 0 ? s.remainingEndOfDay : 0);
-    final progress = base <= 0 ? 0.0 : (s.collected / base).clamp(0.0, 1.0);
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: heroGradient(cs),
-        borderRadius: BorderRadius.circular(Radii.lg),
-        boxShadow: [BoxShadow(color: cs.primary.withValues(alpha: .25), blurRadius: 18, offset: const Offset(0, 8))],
-      ),
-      child: DefaultTextStyle(
-        style: TextStyle(color: cs.onPrimary, fontSize: 14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'الباقي عند البقالات',
-              style: TextStyle(color: cs.onPrimary.withValues(alpha: 0.85), fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 2),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: AlignmentDirectional.centerStart,
-              child: MoneyText(s.remainingEndOfDay, size: 36, color: cs.onPrimary, showCurrency: true),
-            ),
-            const SizedBox(height: 12),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: LinearProgressIndicator(
-                value: progress.toDouble(),
-                minHeight: 7,
-                backgroundColor: cs.onPrimary.withValues(alpha: 0.2),
-                valueColor: AlwaysStoppedAnimation(cs.onPrimary),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                _mini(context, 'العطاء', netDelivered, Icons.arrow_upward),
-                _mini(context, 'المحصّل', s.collected, Icons.arrow_downward),
-                _mini(
-                  context,
-                  'في جيبك',
-                  s.collected - s.traderPaid - s.expenses,
-                  Icons.account_balance_wallet_outlined,
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _mini(BuildContext c, String label, int v, IconData icon) {
-    final on = Theme.of(c).colorScheme.onPrimary;
-    return Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, size: 14, color: on.withValues(alpha: 0.8)),
-              const SizedBox(width: 3),
-              Flexible(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 12.5, color: on.withValues(alpha: 0.85)),
-                ),
-              ),
-            ],
-          ),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: MoneyText(v, size: 17, color: on),
-          ),
-        ],
-      ),
-    );
-  }
+class _Quick {
+  const _Quick(this.icon, this.label, this.color, this.onTap, {this.highlight = false});
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+  final bool highlight;
 }
 
-// ------------------------------------------------------------------ البضاعة في السيارة
-
-class _StockCard extends StatelessWidget {
-  const _StockCard({required this.rows});
-  final List<StockRow> rows;
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    if (rows.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Card(
-        child: ExpansionTile(
-          shape: const Border(),
-          leading: Icon(Icons.inventory_outlined, color: cs.tertiary),
-          title: const Text('البضاعة الباقية في السيارة', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-          subtitle: Text(
-            rows.map((r) => '${r.name} ${qtyText(r.onHand)}').join(' · '),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-              child: Table(
-                columnWidths: const {0: FlexColumnWidth(1.6)},
-                children: [
-                  TableRow(
-                    children: ['الصنف', 'استلمت', 'وزّعت', 'الباقي']
-                        .map(
-                          (t) => Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 6),
-                            child: Text(
-                              t,
-                              style: TextStyle(fontWeight: FontWeight.w700, color: cs.onSurfaceVariant, fontSize: 13),
-                            ),
-                          ),
-                        )
-                        .toList(),
-                  ),
-                  for (final r in rows)
-                    TableRow(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 5),
-                          child: Text(r.name, style: const TextStyle(fontWeight: FontWeight.w700)),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 5),
-                          child: Text(qtyText(r.picked - r.traderReturns)),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 5),
-                          child: Text(qtyText(r.delivered - r.shopReturns)),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 5),
-                          child: Text(
-                            qtyText(r.onHand),
-                            style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              color: r.onHand < 0
-                                  ? debtColor(context)
-                                  : (r.onHand > 0 ? AppColors.warn : paidColor(context)),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                ],
-              ),
-            ),
-            if (rows.any((r) => r.onHand < 0))
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                child: Text(
-                  'تنبيه: وزّعت أكثر مما استلمت في بعض الأصناف. راجع الاستلام.',
-                  style: TextStyle(color: debtColor(context), fontSize: 12.5, fontWeight: FontWeight.w600),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ------------------------------------------------------------------ بطاقات البقالات
-
-class _DeliverTile extends StatelessWidget {
-  const _DeliverTile({super.key, required this.shop, required this.day});
-  final Shop shop;
-  final ShopDay day;
+/// شبكة 3 أعمدة بارتفاع ثابت 84dp — أهداف لمس كبيرة ومتساوية
+class _QuickGrid extends StatelessWidget {
+  const _QuickGrid({required this.items});
+  final List<_Quick> items;
 
   @override
   Widget build(BuildContext context) {
-    final store = context.read<Store>();
     final cs = Theme.of(context).colorScheme;
-    final txs = store.shopTxsOf(shop.id, day: store.day).where((t) => t.type == ShopTxType.delivery).toList();
-    final summary = <String>[];
-    for (final t in txs) {
-      for (final l in t.lines) {
-        summary.add('${l.name} ${qtyText(l.qty)}');
-      }
-    }
-    final done = txs.isNotEmpty;
-    return Card(
-      color: done ? cs.primaryContainer.withValues(alpha: 0.35) : null,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(18),
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => LinesEditorScreen(
-              mode: LinesMode.delivery,
-              day: store.day,
-              shop: shop,
-              existingShopTx: txs.isNotEmpty ? txs.first : null,
-            ),
-          ),
-        ),
-        onLongPress: () =>
-            Navigator.push(context, MaterialPageRoute(builder: (_) => ShopDetailScreen(shopId: shop.id))),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-          child: Row(
-            children: [
-              ShopAvatar(shop.name, active: done, done: done),
-              const SizedBox(width: 12),
-              Expanded(
+    return GridView.count(
+      crossAxisCount: 3,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      mainAxisSpacing: Space.sm,
+      crossAxisSpacing: Space.sm,
+      childAspectRatio: 1.25,
+      children: [
+        for (final q in items)
+          Material(
+            color: q.highlight ? q.color.withValues(alpha: .16) : cs.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(Radii.lg),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: () {
+                haptic(context);
+                q.onTap();
+              },
+              child: Padding(
+                padding: const EdgeInsets.all(Space.sm),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(shop.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16.5)),
-                    const SizedBox(height: 2),
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: q.color.withValues(alpha: .15),
+                        borderRadius: BorderRadius.circular(Radii.md),
+                      ),
+                      child: Icon(q.icon, color: q.color, size: 22),
+                    ),
+                    const SizedBox(height: Space.xs + 2),
                     Text(
-                      done
-                          ? summary.join(' · ')
-                          : (day.before > 0 ? 'عليه من قبل ${money(day.before)}' : 'لم يُعطَ بعد'),
-                      maxLines: 2,
+                      q.label,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13.5),
+                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: cs.onSurface),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              if (done)
-                MoneyText(day.delivered, size: 18, color: cs.primary)
-              else
-                FilledButton.tonalIcon(
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => LinesEditorScreen(mode: LinesMode.delivery, day: store.day, shop: shop),
-                    ),
-                  ),
-                  icon: const Icon(Icons.add, size: 18),
-                  label: const Text('عطاء'),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CollectTile extends StatelessWidget {
-  const _CollectTile({super.key, required this.shop, required this.day});
-  final Shop shop;
-  final ShopDay day;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final rem = day.remaining;
-    final paid = day.hasPayment;
-    final lines = <String>[];
-    if (day.before != 0) lines.add('${day.before > 0 ? 'سابق' : 'رصيد له'} ${money(day.before.abs())}');
-    if (day.delivered > 0) lines.add('عطاء ${money(day.delivered)}');
-    if (day.returned > 0) lines.add('مرتجع ${money(day.returned)}');
-    if (paid) lines.add('دفع ${money(day.paid)}');
-    return Card(
-      color: paid ? paidColor(context).withValues(alpha: 0.08) : null,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(18),
-        onTap: () => showCollectSheet(context, shop),
-        onLongPress: () =>
-            Navigator.push(context, MaterialPageRoute(builder: (_) => ShopDetailScreen(shopId: shop.id))),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              ShopAvatar(shop.name, active: day.hasDelivery, done: paid),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(shop.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16.5)),
-                    const SizedBox(height: 2),
-                    Text(
-                      lines.isEmpty ? 'لا شيء' : lines.join(' · '),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13.5),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(paid ? 'الباقي' : 'المطلوب', style: TextStyle(fontSize: 11.5, color: cs.onSurfaceVariant)),
-                  BalanceBadge(rem),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ------------------------------------------------------------------ نافذة المصروف
-
-class ExpenseDialog extends StatefulWidget {
-  const ExpenseDialog({super.key});
-  @override
-  State<ExpenseDialog> createState() => _ExpenseDialogState();
-}
-
-class _ExpenseDialogState extends State<ExpenseDialog> {
-  final amount = TextEditingController();
-  final note = TextEditingController();
-  String cat = expenseCategories.first;
-
-  @override
-  void dispose() {
-    amount.dispose();
-    note.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('مصروف'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                for (final c in expenseCategories)
-                  ChoiceChip(label: Text(c), selected: cat == c, onSelected: (_) => setState(() => cat = c)),
-              ],
             ),
-            const SizedBox(height: 12),
-            NumberField(controller: amount, autofocus: true, big: true, hint: 'المبلغ'),
-            const SizedBox(height: 10),
-            TextField(
-              controller: note,
-              decoration: const InputDecoration(labelText: 'ملاحظة (اختياري)'),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
-        FilledButton(
-          onPressed: () {
-            final a = parseMoney(amount.text) ?? 0;
-            if (a <= 0) return;
-            Navigator.pop(context, (a, cat, note.text.trim()));
-          },
-          child: const Text('حفظ'),
-        ),
+          ),
       ],
+    );
+  }
+}
+
+class _ProgressRow extends StatelessWidget {
+  const _ProgressRow({
+    required this.icon,
+    required this.label,
+    required this.done,
+    required this.total,
+    required this.color,
+    required this.onTap,
+  });
+  final IconData icon;
+  final String label;
+  final int done;
+  final int total;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final p = total == 0 ? 0.0 : done / total;
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(Space.lg, Space.md, Space.lg, Space.md),
+        child: Row(
+          children: [
+            Icon(icon, color: color, size: 22),
+            const SizedBox(width: Space.md),
+            SizedBox(width: 64, child: Text(label, style: const TextStyle(fontWeight: FontWeight.w700))),
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(Radii.pill),
+                child: LinearProgressIndicator(
+                  value: p,
+                  minHeight: 8,
+                  color: color,
+                  backgroundColor: color.withValues(alpha: .15),
+                ),
+              ),
+            ),
+            const SizedBox(width: Space.md),
+            Text(
+              '$done/$total',
+              style: TextStyle(fontWeight: FontWeight.w700, color: cs.onSurface, fontFeatures: tabular),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

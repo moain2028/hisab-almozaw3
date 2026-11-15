@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../core/format.dart';
 import '../data/store.dart';
 import '../models/models.dart';
+import '../ui/pinned.dart';
 import '../ui/shell.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
@@ -88,80 +89,74 @@ class _ShopsScreenState extends State<ShopsScreen> {
           ? _reorderList(store, all)
           : CustomScrollView(
               slivers: [
-                SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  sliver: SliverList.list(
-                    children: [
-                      Card(
-                        color: debtColor(context).withValues(alpha: 0.07),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
+                // الرأس المثبّت: المجموع + البحث + الترتيب — لا يختفي عند النزول
+                PinnedHeader(
+                  height: 166,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: Space.md),
+                    child: Column(
+                      children: [
+                        Container(
+                          height: 52,
+                          padding: const EdgeInsets.symmetric(horizontal: Space.md),
+                          decoration: BoxDecoration(
+                            color: debtColor(context).withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(Radii.md),
+                          ),
                           child: Row(
                             children: [
+                              Icon(Icons.account_balance_wallet_outlined, color: debtColor(context), size: 20),
+                              const SizedBox(width: Space.sm),
                               Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'مجموع الباقي عند البقالات',
-                                      style: TextStyle(color: cs.onSurfaceVariant, fontWeight: FontWeight.w600),
-                                    ),
-                                    MoneyText(total, size: 28, color: debtColor(context), showCurrency: true),
-                                  ],
+                                child: Text(
+                                  'الباقي عند $debtors من ${all.length}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(color: cs.onSurfaceVariant, fontWeight: FontWeight.w600),
                                 ),
                               ),
-                              Column(
-                                children: [
-                                  Text(
-                                    '$debtors',
-                                    style: TextStyle(
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.w700,
-                                      color: debtColor(context),
-                                    ),
-                                  ),
-                                  Text(
-                                    'من ${all.length} عليهم',
-                                    style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
-                                  ),
-                                ],
-                              ),
+                              MoneyText(total, size: 20, color: debtColor(context), showCurrency: true),
                             ],
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 6),
-                      TextField(
-                        onChanged: (v) => setState(() => q = v.trim()),
-                        decoration: const InputDecoration(
-                          prefixIcon: Icon(Icons.search),
-                          hintText: 'ابحث بالاسم أو الحي',
+                        const SizedBox(height: Space.sm),
+                        SizedBox(
+                          height: 48,
+                          child: TextField(
+                            onChanged: (v) => setState(() => q = v.trim()),
+                            decoration: const InputDecoration(
+                              isDense: true,
+                              prefixIcon: Icon(Icons.search_rounded),
+                              hintText: 'ابحث بالاسم أو الحي',
+                              contentPadding: EdgeInsets.symmetric(vertical: 12),
+                            ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: [
-                            for (final e in {
-                              _Sort.route: 'خط السير',
-                              _Sort.debt: 'الأكثر ديناً',
-                              _Sort.late: 'المتأخرين',
-                              _Sort.name: 'أبجدي',
-                            }.entries)
-                              Padding(
-                                padding: const EdgeInsetsDirectional.only(end: 6),
-                                child: ChoiceChip(
-                                  label: Text(e.value),
-                                  selected: sort == e.key,
-                                  onSelected: (_) => setState(() => sort = e.key),
+                        const SizedBox(height: Space.xs),
+                        SizedBox(
+                          height: 48,
+                          child: ListView(
+                            scrollDirection: Axis.horizontal,
+                            children: [
+                              for (final e in {
+                                _Sort.route: 'خط السير',
+                                _Sort.debt: 'الأكثر ديناً',
+                                _Sort.late: 'المتأخرين',
+                                _Sort.name: 'أبجدي',
+                              }.entries)
+                                Padding(
+                                  padding: const EdgeInsetsDirectional.only(end: Space.sm),
+                                  child: ChoiceChip(
+                                    label: Text(e.value),
+                                    selected: sort == e.key,
+                                    onSelected: (_) => setState(() => sort = e.key),
+                                  ),
                                 ),
-                              ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
                 // تُبنى فقط البطاقات الظاهرة على الشاشة

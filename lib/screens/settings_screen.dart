@@ -11,6 +11,7 @@ import '../ui/widgets.dart';
 import 'backups_screen.dart';
 import 'products_screen.dart';
 import 'trader_screen.dart';
+import 'developer_screen.dart';
 import 'update_screen.dart';
 
 /// مركز الإعدادات — يُفتح من زر ⚙ في رأس كل شاشة رئيسية، ومن آخر القائمة الجانبية.
@@ -193,6 +194,16 @@ class SettingsScreen extends StatelessWidget {
                   },
                 ),
               ],
+            ),
+          ),
+          const SectionTitle('حول'),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.support_agent_rounded),
+              title: const Text('تواصل مع المطوّر', style: TextStyle(fontWeight: FontWeight.w700)),
+              subtitle: const Text('واتساب · اتصال · الموقع'),
+              trailing: const Icon(Icons.chevron_left),
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DeveloperScreen())),
             ),
           ),
           const SizedBox(height: 16),

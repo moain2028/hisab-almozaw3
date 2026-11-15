@@ -5,6 +5,7 @@ import '../core/format.dart';
 import '../data/ledger.dart';
 import '../data/store.dart';
 import '../models/models.dart';
+import '../ui/pinned.dart';
 import '../ui/shell.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
@@ -68,98 +69,143 @@ class TraderScreen extends StatelessWidget {
           if (isTab) const SettingsButton(),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.only(bottom: 24),
-        children: [
-          if (isTab) const DayBar(),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Card(
-              child: Padding(
-                padding: const EdgeInsets.all(18),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+      // الرأس المثبّت: الرصيد + الإجراءات · يتمرّر الكشف فقط
+      body: CustomScrollView(
+        slivers: [
+          PinnedHeader(
+            height: isTab ? 244 : 180,
+            child: Column(
+              children: [
+                if (isTab) const DayBar(),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: Space.md),
+                  child: Container(
+                    height: 72,
+                    padding: const EdgeInsets.symmetric(horizontal: Space.lg),
+                    decoration: BoxDecoration(
+                      color: (bal > 0 ? debtColor(context) : paidColor(context)).withValues(alpha: .08),
+                      borderRadius: BorderRadius.circular(Radii.lg),
+                    ),
+                    child: Row(
                       children: [
-                        Icon(Icons.local_shipping, color: cs.tertiary),
-                        const SizedBox(width: 8),
+                        Icon(Icons.local_shipping_rounded, color: cs.tertiary),
+                        const SizedBox(width: Space.md),
                         Expanded(
-                          child: Text(
-                            t.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                t.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontWeight: FontWeight.w700),
+                              ),
+                              Text(
+                                bal > 0 ? 'عليك للتاجر' : (bal < 0 ? 'لك عند التاجر' : 'الحساب مسدّد'),
+                                style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12.5),
+                              ),
+                            ],
+                          ),
+                        ),
+                        FittedBox(
+                          child: MoneyText(
+                            bal.abs(),
+                            size: 24,
+                            color: bal > 0 ? debtColor(context) : paidColor(context),
+                            showCurrency: true,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 10),
-                    Text(
-                      bal > 0 ? 'عليك للتاجر' : (bal < 0 ? 'لك عند التاجر' : 'الحساب'),
-                      style: TextStyle(color: cs.onSurfaceVariant, fontWeight: FontWeight.w600),
-                    ),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: AlignmentDirectional.centerStart,
-                      child: MoneyText(
-                        bal.abs(),
-                        size: 36,
-                        color: bal > 0 ? debtColor(context) : paidColor(context),
-                        showCurrency: true,
-                      ),
-                    ),
-                    const Divider(height: 22),
-                    KvRow('استلام ${relativeDay(day)}', todayPickup),
-                    KvRow('دفعت ${relativeDay(day)}', todayPaid, color: paidColor(context)),
-                    if (yPickup > 0) KvRow('بضاعة ${relativeDay(yesterday)}', yPickup),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: FilledButton.tonalIcon(
-                    onPressed: () => _pickup(context, store, t),
-                    style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(54)),
-                    icon: const Icon(Icons.inventory_2_outlined),
-                    label: const Text('استلام بضاعة'),
                   ),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: () => _pay(context, store, t, bal, yPickup),
-                    style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(54)),
-                    icon: const Icon(Icons.payments_outlined),
-                    label: const Text('دفعة للتاجر'),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(Space.md, Space.sm, Space.md, 0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: FilledButton.tonalIcon(
+                          onPressed: () => _pickup(context, store, t),
+                          icon: const Icon(Icons.inventory_2_outlined, size: 20),
+                          label: const Text('استلام'),
+                        ),
+                      ),
+                      const SizedBox(width: Space.sm),
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: () => _pay(context, store, t, bal, yPickup),
+                          icon: const Icon(Icons.payments_outlined, size: 20),
+                          label: const Text('دفعة'),
+                        ),
+                      ),
+                      const SizedBox(width: Space.sm),
+                      IconButton.outlined(
+                        tooltip: 'إرجاع بضاعة للتاجر',
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => LinesEditorScreen(mode: LinesMode.traderReturn, day: day, trader: t),
+                          ),
+                        ),
+                        icon: const Icon(Icons.undo_rounded),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
-            child: OutlinedButton.icon(
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => LinesEditorScreen(mode: LinesMode.traderReturn, day: day, trader: t),
-                ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(Space.md, Space.sm, Space.md, 0),
+              child: Row(
+                children: [
+                  Expanded(child: _mini(context, 'استلام ${relativeDay(day)}', todayPickup, cs.tertiary)),
+                  const SizedBox(width: Space.sm),
+                  Expanded(child: _mini(context, 'دفعت ${relativeDay(day)}', todayPaid, paidColor(context))),
+                  if (yPickup > 0) ...[
+                    const SizedBox(width: Space.sm),
+                    Expanded(child: _mini(context, 'بضاعة ${relativeDay(yesterday)}', yPickup, cs.onSurfaceVariant)),
+                  ],
+                ],
               ),
-              icon: const Icon(Icons.undo),
-              label: const Text('إرجاع بضاعة للتاجر'),
             ),
           ),
-          const Padding(padding: EdgeInsets.symmetric(horizontal: 12), child: SectionTitle('كشف حساب التاجر')),
+          const SliverToBoxAdapter(
+            child: Padding(padding: EdgeInsets.symmetric(horizontal: Space.md), child: SectionTitle('كشف الحساب')),
+          ),
           if (rows.isEmpty)
-            const EmptyState(icon: Icons.receipt_long_outlined, text: 'سجّل استلام بضاعة الصباح من التاجر'),
-          for (final d in days)
-            Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: _dayGroup(context, t, d, byDay[d]!)),
+            const SliverToBoxAdapter(
+              child: EmptyState(icon: Icons.receipt_long_outlined, text: 'سجّل استلام بضاعة الصباح من التاجر'),
+            ),
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(Space.md, 0, Space.md, Space.xl),
+            sliver: SliverList.builder(
+              itemCount: days.length,
+              itemBuilder: (_, i) => _dayGroup(context, t, days[i], byDay[days[i]]!),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _mini(BuildContext context, String label, int v, Color c) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: Space.md, vertical: Space.sm),
+      decoration: BoxDecoration(color: cs.surfaceContainerHigh, borderRadius: BorderRadius.circular(Radii.md)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+          ),
+          FittedBox(child: MoneyText(v, size: 16, color: c)),
         ],
       ),
     );

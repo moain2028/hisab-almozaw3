@@ -126,9 +126,14 @@ ThemeData buildTheme(Brightness b) {
         borderRadius: BorderRadiusDirectional.horizontal(end: Radius.circular(Radii.xl)),
       ),
     ),
+    // تحذير: لا تضع labelStyle بلا لون هنا — يلغي لون Material الافتراضي فيظهر النص أسود على الداكن.
     chipTheme: ChipThemeData(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.pill)),
-      labelStyle: const TextStyle(fontWeight: FontWeight.w600),
+      labelStyle: TextStyle(fontWeight: FontWeight.w600, color: cs.onSurfaceVariant),
+      secondaryLabelStyle: TextStyle(fontWeight: FontWeight.w700, color: cs.onSecondaryContainer),
+      selectedColor: cs.secondaryContainer,
+      checkmarkColor: cs.onSecondaryContainer,
+      side: BorderSide(color: cs.outlineVariant),
     ),
     listTileTheme: const ListTileThemeData(minVerticalPadding: 10, horizontalTitleGap: 14),
     bottomSheetTheme: const BottomSheetThemeData(
@@ -143,7 +148,13 @@ ThemeData buildTheme(Brightness b) {
       elevation: 0,
       backgroundColor: b == Brightness.light ? Colors.white : cs.surfaceContainer,
       indicatorColor: cs.primaryContainer,
-      labelTextStyle: WidgetStateProperty.all(const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+      labelTextStyle: WidgetStateProperty.resolveWith(
+        (st) => TextStyle(
+          fontSize: 12.5,
+          fontWeight: FontWeight.w700,
+          color: st.contains(WidgetState.selected) ? cs.onSurface : cs.onSurfaceVariant,
+        ),
+      ),
     ),
     snackBarTheme: const SnackBarThemeData(behavior: SnackBarBehavior.floating),
   );

@@ -3,7 +3,9 @@ import 'package:provider/provider.dart';
 
 import '../core/license_service.dart';
 import '../ui/theme.dart';
+import '../core/developer.dart';
 import 'backups_screen.dart';
+import 'developer_screen.dart';
 
 /// شاشة القفل: تظهر بدل التطبيق عند إيقاف الترخيص. البيانات لا تُمس.
 class LicenseLockScreen extends StatefulWidget {
@@ -104,6 +106,13 @@ class _LicenseLockScreenState extends State<LicenseLockScreen> {
                   style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
                   icon: const Icon(Icons.refresh),
                   label: const Text('إعادة الفحص'),
+                ),
+                // طلب كود التفعيل مباشرة من المطوّر (واتساب)
+                FilledButton.tonalIcon(
+                  onPressed: () => openUri(context, Developer.whatsapp('أريد كود تفعيل تطبيق حساب الموزع')),
+                  style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+                  icon: const Icon(Icons.chat_rounded),
+                  label: const Text('اطلب الكود من المطوّر (واتساب)'),
                 ),
                 // حتى أثناء القفل يستطيع المستخدم أخذ نسخة من بياناته
                 TextButton.icon(

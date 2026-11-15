@@ -1,13 +1,24 @@
+/// reports_screen.dart — التقارير بهيكلية تطبيق (لا صفحة ويب طويلة).
+///
+/// الرئيسية للتقارير (تُرى كاملة بلا تمرير تقريباً):
+///   1. الفترة **مثبّتة** في الأعلى (اليوم · 7 أيام · الشهر · فترة)
+///   2. بطاقة صافي الربح (رقم واحد كبير + سطرين)
+///   3. شبكة 2×2 لحركة الفلوس
+///   4. قائمة أقسام — كل قسم **يفتح صفحته**: تفاصيل الربح، الأصناف، البقالات، المبيعات اليومية، المصاريف
+library;
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../core/format.dart';
 import '../data/ledger.dart';
 import '../data/store.dart';
+import '../ui/pinned.dart';
 import '../ui/shell.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
-import 'today_screen.dart';
+import 'expenses_screen.dart';
+import 'shop_detail_screen.dart';
 
 enum _Period { today, week, month, custom }
 
@@ -31,301 +42,411 @@ class _ReportsScreenState extends State<ReportsScreen> {
     };
   }
 
+  Future<void> _pick(_Period p) async {
+    if (p != _Period.custom) return setState(() => period = p);
+    final res = await showDateRangePicker(context: context, firstDate: DateTime(2022), lastDate: DateTime.now());
+    if (res == null) return;
+    setState(() {
+      custom = res;
+      period = _Period.custom;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final store = context.watch<Store>();
     final cs = Theme.of(context).colorScheme;
     final (from, to) = range;
     final r = store.report(from, to);
-    final products = r.products.values.where((p) => p.qty != 0).toList()..sort((a, b) => b.profit.compareTo(a.profit));
-    final shops = r.shops.values.toList()..sort((a, b) => b.net.compareTo(a.net));
-    final days = <String>[];
-    final n = parseDay(to).difference(parseDay(from)).inDays + 1;
-    if (n > 1 && n <= 31) {
-      for (var i = 0; i < n; i++) {
-        days.add(shiftDay(from, i));
-      }
-    }
+    final label = from == to ? arDay(from) : '${shortDay(from)} ← ${shortDay(to)}';
+    void open(Widget page) => Navigator.push(context, MaterialPageRoute(builder: (_) => page));
+    final products = r.products.values.where((p) => p.qty != 0).length;
+    final shops = r.shops.length;
+    final expCount = store.expensesOf(from: from, to: to).length;
 
     return Scaffold(
       appBar: AppBar(
         leading: const MenuButton(),
-        title: const Text('التقارير والأرباح'),
+        title: const Text('التقارير'),
         actions: const [SettingsButton()],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        heroTag: 'exp',
-        onPressed: () async {
-          final res = await showDialog<(int, String, String)>(context: context, builder: (_) => const ExpenseDialog());
-          if (res != null) await store.addExpense(todayKey(), res.$1, res.$2, res.$3);
-        },
-        icon: const Icon(Icons.add),
-        label: const Text('مصروف'),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(12, 0, 12, 96),
-        children: [
-          SegmentedButton<_Period>(
-            showSelectedIcon: false,
-            segments: const [
-              ButtonSegment(value: _Period.today, label: Text('اليوم')),
-              ButtonSegment(value: _Period.week, label: Text('7 أيام')),
-              ButtonSegment(value: _Period.month, label: Text('الشهر')),
-              ButtonSegment(value: _Period.custom, label: Text('فترة')),
-            ],
-            selected: {period},
-            onSelectionChanged: (v) async {
-              if (v.first == _Period.custom) {
-                final res = await showDateRangePicker(
-                  context: context,
-                  firstDate: DateTime(2022),
-                  lastDate: DateTime.now(),
-                );
-                if (res == null) return;
-                setState(() {
-                  custom = res;
-                  period = _Period.custom;
-                });
-              } else {
-                setState(() => period = v.first);
-              }
-            },
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Center(
-              child: Text(
-                from == to ? arDay(from) : 'من ${arDay(from)} إلى ${arDay(to)}',
-                style: TextStyle(color: cs.onSurfaceVariant, fontWeight: FontWeight.w600),
-              ),
-            ),
-          ),
-          // ---------------- صافي الربح
-          Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(color: cs.primary, borderRadius: BorderRadius.circular(22)),
-            child: DefaultTextStyle(
-              style: TextStyle(color: cs.onPrimary, fontSize: 14.5),
+      body: CustomScrollView(
+        slivers: [
+          PinnedHeader(
+            height: 92,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: Space.md),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('صافي الربح', style: TextStyle(color: cs.onPrimary.withValues(alpha: 0.85))),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: AlignmentDirectional.centerStart,
-                    child: MoneyText(r.netProfit, size: 34, color: cs.onPrimary, showCurrency: true),
+                  SegmentedButton<_Period>(
+                    showSelectedIcon: false,
+                    style: SegmentedButton.styleFrom(minimumSize: const Size.fromHeight(44)),
+                    segments: const [
+                      ButtonSegment(value: _Period.today, label: Text('اليوم')),
+                      ButtonSegment(value: _Period.week, label: Text('7 أيام')),
+                      ButtonSegment(value: _Period.month, label: Text('الشهر')),
+                      ButtonSegment(value: _Period.custom, icon: Icon(Icons.date_range_rounded, size: 18)),
+                    ],
+                    selected: {period},
+                    onSelectionChanged: (v) => _pick(v.first),
                   ),
-                  Divider(color: cs.onPrimary.withValues(alpha: 0.3), height: 22),
-                  _line(context, 'المبيعات (العطاء)', r.delivered),
-                  if (r.returned > 0) _line(context, 'المرتجعات', -r.returned),
-                  if (r.discounts > 0) _line(context, 'الخصومات', -r.discounts),
-                  _line(context, 'تكلفة البضاعة (سعر التاجر)', -r.costOfSold),
-                  _line(context, 'الربح من البضاعة', r.grossProfit, bold: true),
-                  _line(context, 'المصاريف', -r.expenses),
+                  const SizedBox(height: Space.sm),
+                  Text(label, style: TextStyle(color: cs.onSurfaceVariant, fontWeight: FontWeight.w600)),
                 ],
               ),
             ),
           ),
-          // ---------------- النقد
-          const SectionTitle('حركة الفلوس'),
-          Row(
-            children: [
-              Expanded(
-                child: StatBox(
-                  label: 'حصّلت من البقالات',
-                  value: r.collected,
-                  icon: Icons.south_west,
-                  color: paidColor(context),
-                ),
-              ),
-              Expanded(
-                child: StatBox(label: 'دفعت للتاجر', value: r.traderPaid, icon: Icons.north_east, color: cs.tertiary),
-              ),
-            ],
-          ),
-          Row(
-            children: [
-              Expanded(
-                child: StatBox(
-                  label: 'المصاريف',
-                  value: r.expenses,
-                  icon: Icons.local_gas_station_outlined,
-                  color: AppColors.warn,
-                ),
-              ),
-              Expanded(
-                child: StatBox(
-                  label: 'الصافي في يدك',
-                  value: r.cashFlow,
-                  icon: Icons.account_balance_wallet_outlined,
-                  color: balanceColor(context, -r.cashFlow),
-                ),
-              ),
-            ],
-          ),
-          Row(
-            children: [
-              Expanded(
-                child: StatBox(
-                  label: 'الباقي عند البقالات الآن',
-                  value: store.totalOwed,
-                  icon: Icons.storefront,
-                  color: debtColor(context),
-                ),
-              ),
-              Expanded(
-                child: StatBox(
-                  label: 'عليك للتاجر الآن',
-                  value: store.totalToTraders,
-                  icon: Icons.local_shipping,
-                  color: debtColor(context),
-                ),
-              ),
-            ],
-          ),
-          // ---------------- يومي
-          if (days.isNotEmpty) ...[
-            const SectionTitle('المبيعات يوماً بيوم'),
-            Card(
-              child: Padding(padding: const EdgeInsets.all(14), child: _bars(context, days, r.dailySales)),
-            ),
-          ],
-          // ---------------- الأصناف
-          if (products.isNotEmpty) ...[
-            const SectionTitle('الأصناف'),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  children: [
-                    for (final p in products) ...[
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(p.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-                          ),
-                          Text('${qtyText(p.qty)} ${p.unit}', style: TextStyle(color: cs.onSurfaceVariant)),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(4),
-                              child: LinearProgressIndicator(
-                                value: products.first.profit <= 0
-                                    ? 0
-                                    : (p.profit / products.first.profit).clamp(0, 1).toDouble(),
-                                minHeight: 8,
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(Space.md, Space.xs, Space.md, Space.xl),
+            sliver: SliverList.list(
+              children: [
+                // ---------------- صافي الربح
+                Material(
+                  borderRadius: BorderRadius.circular(Radii.lg),
+                  clipBehavior: Clip.antiAlias,
+                  child: Ink(
+                    decoration: BoxDecoration(gradient: heroGradient(cs)),
+                    child: InkWell(
+                      onTap: () => open(_ProfitPage(r: r, label: label)),
+                      child: Padding(
+                        padding: const EdgeInsets.all(Space.lg),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('صافي الربح', style: TextStyle(color: cs.onPrimary.withValues(alpha: .85))),
+                                  FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: AlignmentDirectional.centerStart,
+                                    child: MoneyText(r.netProfit, size: 32, color: cs.onPrimary, showCurrency: true),
+                                  ),
+                                  const SizedBox(height: Space.xs),
+                                  Text(
+                                    'مبيعات ${money(r.netSales)} · مصاريف ${money(r.expenses)}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(color: cs.onPrimary.withValues(alpha: .85), fontSize: 13),
+                                  ),
+                                ],
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 10),
-                          Text(
-                            'مبيعات ${money(p.sales)} · ربح ${money(p.profit)}',
-                            style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          ],
-          // ---------------- البقالات
-          if (shops.isNotEmpty) ...[
-            const SectionTitle('البقالات في الفترة'),
-            Card(
-              child: Column(
-                children: [
-                  for (final s in shops)
-                    ListTile(
-                      dense: true,
-                      title: Text(s.shop.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-                      subtitle: Text('عطاء ${money(s.net)} · دفع ${money(s.paid)}'),
-                      trailing: Text(
-                        money(s.net - s.paid),
-                        style: TextStyle(fontWeight: FontWeight.w700, color: balanceColor(context, s.net - s.paid)),
+                            Icon(Icons.chevron_left_rounded, color: cs.onPrimary),
+                          ],
+                        ),
                       ),
                     ),
-                ],
-              ),
+                  ),
+                ),
+                const SizedBox(height: Space.md),
+
+                // ---------------- حركة الفلوس 2×2
+                GridView.count(
+                  crossAxisCount: 2,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  mainAxisSpacing: Space.sm,
+                  crossAxisSpacing: Space.sm,
+                  childAspectRatio: 2.1,
+                  children: [
+                    _Kpi('حصّلت', r.collected, Icons.south_west_rounded, paidColor(context)),
+                    _Kpi('دفعت للتاجر', r.traderPaid, Icons.north_east_rounded, cs.tertiary),
+                    _Kpi('الباقي عند البقالات', store.totalOwed, Icons.storefront_rounded, debtColor(context)),
+                    _Kpi('في يدك', r.cashFlow, Icons.account_balance_wallet_rounded, balanceColor(context, -r.cashFlow)),
+                  ],
+                ),
+
+                // ---------------- الأقسام
+                const SectionTitle('التفاصيل'),
+                Card(
+                  margin: EdgeInsets.zero,
+                  clipBehavior: Clip.antiAlias,
+                  child: Column(
+                    children: [
+                      _Nav(Icons.calculate_rounded, 'تفاصيل الربح', 'المبيعات − التكلفة − المصاريف', () {
+                        open(_ProfitPage(r: r, label: label));
+                      }),
+                      const Divider(height: 1, indent: 56),
+                      _Nav(Icons.inventory_2_rounded, 'الأصناف', '$products صنف مباع', () {
+                        open(_ProductsPage(r: r, label: label));
+                      }),
+                      const Divider(height: 1, indent: 56),
+                      _Nav(Icons.storefront_rounded, 'البقالات', '$shops بقالة في الفترة', () {
+                        open(_ShopsPage(r: r, label: label));
+                      }),
+                      const Divider(height: 1, indent: 56),
+                      _Nav(Icons.bar_chart_rounded, 'المبيعات يوماً بيوم', label, () {
+                        open(_DailyPage(r: r, from: from, to: to, label: label));
+                      }),
+                      const Divider(height: 1, indent: 56),
+                      _Nav(Icons.receipt_long_rounded, 'المصاريف', '$expCount مصروف · ${money(r.expenses)}', () {
+                        open(const ExpensesScreen());
+                      }),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ],
-          // ---------------- المصاريف
-          const SectionTitle('المصاريف'),
-          ..._expenses(context, store, from, to),
+          ),
         ],
       ),
     );
   }
+}
 
-  List<Widget> _expenses(BuildContext context, Store store, String from, String to) {
-    final list = store.expensesOf(from: from, to: to);
-    if (list.isEmpty) {
-      return [const Padding(padding: EdgeInsets.all(12), child: Text('لا توجد مصاريف في هذه الفترة'))];
-    }
-    return [
-      Card(
-        child: Column(
-          children: [
-            for (final e in list)
-              ListTile(
-                dense: true,
-                leading: const Icon(Icons.receipt_outlined, color: AppColors.warn),
-                title: Text(
-                  e.note.isEmpty ? e.category : '${e.category} · ${e.note}',
-                  style: const TextStyle(fontWeight: FontWeight.w700),
-                ),
-                subtitle: Text(relativeDay(e.day)),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(money(e.amount), style: const TextStyle(fontWeight: FontWeight.w700)),
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline, size: 20),
-                      onPressed: () async {
-                        final old = await store.deleteExpense(e.id);
-                        if (old != null && context.mounted) {
-                          undoToast(context, 'حُذف المصروف', () => store.saveExpense(old));
-                        }
-                      },
-                    ),
-                  ],
+class _Kpi extends StatelessWidget {
+  const _Kpi(this.label, this.value, this.icon, this.color);
+  final String label;
+  final int value;
+  final IconData icon;
+  final Color color;
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: Space.md, vertical: Space.sm),
+      decoration: BoxDecoration(color: cs.surfaceContainerHigh, borderRadius: BorderRadius.circular(Radii.md)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 16, color: color),
+              const SizedBox(width: Space.xs),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 12.5, color: cs.onSurfaceVariant),
                 ),
               ),
+            ],
+          ),
+          FittedBox(child: MoneyText(value, size: 19, color: color)),
+        ],
+      ),
+    );
+  }
+}
+
+class _Nav extends StatelessWidget {
+  const _Nav(this.icon, this.title, this.sub, this.onTap);
+  final IconData icon;
+  final String title;
+  final String sub;
+  final VoidCallback onTap;
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return ListTile(
+      onTap: onTap,
+      leading: Icon(icon, color: cs.primary),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+      subtitle: Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis),
+      trailing: const Icon(Icons.chevron_left_rounded),
+    );
+  }
+}
+
+/// غلاف موحّد لصفحات التفاصيل: عنوان + الفترة تحته
+class _Page extends StatelessWidget {
+  const _Page({required this.title, required this.label, required this.children});
+  final String title;
+  final String label;
+  final List<Widget> children;
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Scaffold(
+      appBar: AppBar(
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title),
+            Text(label, style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant, fontWeight: FontWeight.w600)),
           ],
         ),
       ),
-    ];
+      body: ListView(padding: const EdgeInsets.fromLTRB(Space.md, 0, Space.md, Space.xl), children: children),
+    );
   }
+}
 
-  Widget _line(BuildContext c, String a, int v, {bool bold = false}) {
-    final on = Theme.of(c).colorScheme.onPrimary;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
+class _ProfitPage extends StatelessWidget {
+  const _ProfitPage({required this.r, required this.label});
+  final PeriodReport r;
+  final String label;
+  @override
+  Widget build(BuildContext context) {
+    Widget row(String a, int v, {bool bold = false, Color? c}) => Padding(
+      padding: const EdgeInsets.symmetric(horizontal: Space.lg, vertical: Space.md),
       child: Row(
         children: [
-          Expanded(
-            child: Text(
-              a,
-              style: TextStyle(color: on, fontWeight: bold ? FontWeight.w700 : FontWeight.w500),
-            ),
-          ),
+          Expanded(child: Text(a, style: TextStyle(fontWeight: bold ? FontWeight.w700 : FontWeight.w500))),
           Text(
             v < 0 ? '− ${money(-v)}' : money(v),
             textDirection: TextDirection.ltr,
-            style: TextStyle(color: on, fontWeight: FontWeight.w700, fontSize: bold ? 16 : 14.5),
+            style: TextStyle(fontWeight: FontWeight.w700, fontSize: bold ? 17 : 15, color: c, fontFeatures: tabular),
           ),
         ],
       ),
     );
+    return _Page(
+      title: 'تفاصيل الربح',
+      label: label,
+      children: [
+        Card(
+          child: Column(
+            children: [
+              row('المبيعات (العطاء)', r.delivered),
+              if (r.returned > 0) row('المرتجعات', -r.returned),
+              if (r.discounts > 0) row('الخصومات', -r.discounts),
+              const Divider(height: 1),
+              row('صافي المبيعات', r.netSales, bold: true),
+              row('تكلفة البضاعة (سعر التاجر)', -r.costOfSold),
+              const Divider(height: 1),
+              row('الربح من البضاعة', r.grossProfit, bold: true),
+              row('المصاريف', -r.expenses),
+              const Divider(height: 1),
+              row('صافي الربح', r.netProfit, bold: true, c: balanceColor(context, -r.netProfit)),
+            ],
+          ),
+        ),
+        const SectionTitle('حركة التاجر'),
+        Card(
+          child: Column(
+            children: [
+              row('استلمت بضاعة', r.traderPickups),
+              if (r.traderReturns > 0) row('أرجعت للتاجر', -r.traderReturns),
+              row('دفعت للتاجر', r.traderPaid),
+            ],
+          ),
+        ),
+      ],
+    );
   }
+}
 
-  Widget _bars(BuildContext c, List<String> days, Map<String, int> data) {
+class _ProductsPage extends StatelessWidget {
+  const _ProductsPage({required this.r, required this.label});
+  final PeriodReport r;
+  final String label;
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final list = r.products.values.where((p) => p.qty != 0).toList()..sort((a, b) => b.profit.compareTo(a.profit));
+    final top = list.isEmpty || list.first.profit <= 0 ? 1 : list.first.profit;
+    return _Page(
+      title: 'الأصناف',
+      label: label,
+      children: [
+        if (list.isEmpty) const EmptyState(icon: Icons.inventory_2_outlined, text: 'لا مبيعات في هذه الفترة'),
+        for (final p in list)
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(Space.md),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(child: Text(p.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16))),
+                      Text('${qtyText(p.qty)} ${p.unit}', style: TextStyle(color: cs.onSurfaceVariant)),
+                    ],
+                  ),
+                  const SizedBox(height: Space.sm),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(Radii.pill),
+                    child: LinearProgressIndicator(value: (p.profit / top).clamp(0, 1).toDouble(), minHeight: 8),
+                  ),
+                  const SizedBox(height: Space.sm),
+                  Row(
+                    children: [
+                      Expanded(child: Text('مبيعات ${money(p.sales)}', style: TextStyle(color: cs.onSurfaceVariant))),
+                      Text(
+                        'ربح ${money(p.profit)}',
+                        style: TextStyle(fontWeight: FontWeight.w700, color: paidColor(context)),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _ShopsPage extends StatelessWidget {
+  const _ShopsPage({required this.r, required this.label});
+  final PeriodReport r;
+  final String label;
+  @override
+  Widget build(BuildContext context) {
+    final list = r.shops.values.toList()..sort((a, b) => b.net.compareTo(a.net));
+    return _Page(
+      title: 'البقالات',
+      label: label,
+      children: [
+        if (list.isEmpty) const EmptyState(icon: Icons.storefront_outlined, text: 'لا حركة في هذه الفترة'),
+        for (final s in list)
+          Card(
+            child: ListTile(
+              leading: ShopAvatar(s.shop.name, active: s.net - s.paid > 0),
+              title: Text(s.shop.name, style: const TextStyle(fontWeight: FontWeight.w700)),
+              subtitle: Text('عطاء ${money(s.net)} · دفع ${money(s.paid)}'),
+              trailing: BalanceBadge(s.net - s.paid, size: 15),
+              onTap: () =>
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => ShopDetailScreen(shopId: s.shop.id))),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _DailyPage extends StatelessWidget {
+  const _DailyPage({required this.r, required this.from, required this.to, required this.label});
+  final PeriodReport r;
+  final String from;
+  final String to;
+  final String label;
+  @override
+  Widget build(BuildContext context) {
+    final n = parseDay(to).difference(parseDay(from)).inDays + 1;
+    final days = [for (var i = 0; i < n.clamp(1, 62); i++) shiftDay(from, i)];
+    final cs = Theme.of(context).colorScheme;
+    return _Page(
+      title: 'المبيعات يوماً بيوم',
+      label: label,
+      children: [
+        if (days.length > 1)
+          Card(child: Padding(padding: const EdgeInsets.all(Space.md), child: salesBars(context, days, r.dailySales))),
+        Card(
+          child: Column(
+            children: [
+              for (final d in days.reversed)
+                ListTile(
+                  dense: true,
+                  title: Text(relativeDay(d), style: const TextStyle(fontWeight: FontWeight.w600)),
+                  trailing: Text(
+                    money(r.dailySales[d] ?? 0),
+                    style: TextStyle(fontWeight: FontWeight.w700, color: cs.onSurface, fontFeatures: tabular),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+Widget salesBars(BuildContext c, List<String> days, Map<String, int> data) {
     final maxV = days.fold<int>(1, (m, d) => (data[d] ?? 0) > m ? data[d]! : m);
     final color = Theme.of(c).colorScheme.primary;
     final showEvery = days.length > 14 ? 3 : 1;
@@ -360,7 +481,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
         ],
       ),
     );
-  }
 }
 
 // يستخدم في الاختبارات

@@ -13,6 +13,7 @@ import '../core/format.dart';
 import '../core/update_service.dart';
 import '../data/store.dart';
 import '../screens/backups_screen.dart';
+import '../screens/developer_screen.dart';
 import '../screens/expenses_screen.dart';
 import '../screens/products_screen.dart';
 import '../screens/settings_screen.dart';
@@ -134,6 +135,7 @@ class AppDrawer extends StatelessWidget {
 
         const Padding(padding: EdgeInsets.fromLTRB(28, 8, 28, 8), child: Divider()),
         _Item(Icons.settings_rounded, 'الإعدادات', onTap: () => open(const SettingsScreen())),
+        _Item(Icons.support_agent_rounded, 'تواصل مع المطوّر', onTap: () => open(const DeveloperScreen())),
         const SizedBox(height: 12),
         Center(
           child: Text('الإصدار $kAppVersion', style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
