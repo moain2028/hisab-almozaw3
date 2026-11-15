@@ -1,16 +1,104 @@
-# distributor
+# حساب الموزع — Hisab Al-Mozaw3
 
-A new Flutter project.
+**تطبيق أندرويد لموزّعي الألبان (زبادي، حقين، لبن…)**: يسجّل عطاء الصباح لكل بقالة، ويعرض ليلاً كم باقي عند كل صاحب بقالة، ويتابع حساب التاجر يوماً بيوم.
 
-## Getting Started
+> بدون إنترنت · بدون حساب · كل البيانات على الجوال مع نسخ احتياطي تلقائي مثل واتساب.
 
-This project is a starting point for a Flutter application.
+<p align="center">
+  <img src="docs/screenshots/01-today-delivery.png" width="200" alt="العطاء">
+  <img src="docs/screenshots/02b-collect-sheet.png" width="200" alt="التحصيل">
+  <img src="docs/screenshots/03-shops.png" width="200" alt="البقالات">
+  <img src="docs/screenshots/06-reports.png" width="200" alt="التقارير">
+</p>
 
-A few resources to get you started if this is your first Flutter project:
+---
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+## المشكلة التي يحلها
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+| الوقت | ما يحدث | ما يسجله التطبيق |
+|---|---|---|
+| ☀️ الصباح | يأخذ بضاعة من التاجر بالآجل | **استلام** (يزيد ما عليه للتاجر) |
+| ☀️ الصباح | يوزّع على البقالات | **عطاء** لكل بقالة بأزرار ¼ ½ 1 |
+| 🌙 الليل | يمر على البقالات ويتحصّل | **تحصيل** ← يظهر فوراً **الباقي عند البقالة** |
+| ☀️ الصباح التالي | يحاسب التاجر | **دفعة للتاجر** |
+
+**القاعدة المحاسبية (واضحة لأي شخص):**
+
+```
+الباقي على البقالة = دين سابق + العطاء − المرتجع − الخصم − التحصيل
+ما عليك للتاجر    = رصيد سابق + الاستلام − الإرجاع − الدفعات
+صافي الربح         = (المبيعات − المرتجعات − الخصومات) − تكلفة البضاعة − المصاريف
+```
+
+## الميزات
+
+- **شاشة اليوم**: وضع العطاء (صباحاً) ووضع التحصيل (ليلاً، يتفعّل تلقائياً بعد العصر)، بترتيب خط السير.
+- **إدخال سريع**: أزرار `+¼ +½ +1` مع تراجع ذكي، أو كتابة الكمية، وسعر خاص لعملية واحدة.
+- **نافذة التحصيل**: `السابق + عطاء اليوم − المرتجع = المطلوب`، ثم يظهر الباقي لحظياً أثناء الكتابة.
+- **المرتجعات والخصومات**: للبضاعة التالفة أو المنتهية.
+- **البضاعة في السيارة**: ما استُلم مقابل ما وُزّع، مع تنبيه لو وُزّع أكثر مما استُلم.
+- **كشف حساب** لكل بقالة وللتاجر مع الرصيد الجاري، وإرساله لصاحب البقالة على **واتساب**.
+- **البقالات**: ترتيب حسب الدين أو المتأخرين في الدفع، وأرشفة.
+- **التقارير**: صافي الربح، حركة النقد، المبيعات اليومية، ربح كل صنف، المصاريف حسب النوع.
+- **نسخ احتياطي تلقائي محلي** في `Android/media/<package>/Backups` مع التحقق من سلامة الملف ← [التفاصيل](docs/design/backup.md).
+- **تراجع** بعد أي حذف، وتنبيه عند الخروج بدون حفظ، واهتزاز خفيف، ووضع ليلي، وثلاثة أحجام للخط.
+
+## الأداء (مقاس، وليس تقديراً)
+
+| السيناريو | قبل (مسح كامل) | بعد (فهرس + كاش) |
+|---|---|---|
+| رسم شاشة اليوم لـ 40 بقالة، ~44 ألف حركة (سنتان) | **91 ms** لكل إطار | **0.064 ms** لكل إطار |
+| بناء الفهرس (مرة واحدة عند التغيير) | — | 30 ms |
+
+المصدر: `test/ledger_index_test.dart`. ميزانية الإطار عند 60fps هي 16.6ms. التفاصيل في [docs/design/performance.md](docs/design/performance.md).
+
+## التشغيل
+
+المتطلبات: **Flutter 3.35.x / Dart 3.9.x**، و Android SDK 35، و JDK 17.
+
+```bash
+flutter pub get
+flutter analyze            # يجب أن يطبع: No issues found
+flutter test               # 20 اختباراً
+flutter run                # على جهاز أو محاكي
+flutter build apk --release
+# الناتج: build/app/outputs/flutter-apk/app-release.apk
+```
+
+معاينة الويب (للعرض فقط، تُحمّل بيانات تجريبية تلقائياً): `flutter build web --release`.
+
+## هيكل المشروع
+
+```
+lib/
+├── main.dart                  # الإقلاع، دورة الحياة، التنقل السفلي (بناء كسول للتبويبات)
+├── core/format.dart           # تنسيق المال/الكميات/التواريخ، الأرقام العربية
+├── models/models.dart         # Shop, Product, Trader, ShopTx, TraderTx, Expense
+├── data/
+│   ├── ledger.dart            # المحاسبة الصافية (مرجع الاختبارات)
+│   ├── ledger_index.dart      # فهرس الحسابات: prefix sums + بحث ثنائي
+│   ├── store.dart             # المخزن: Hive + فهارس تزايدية + كاش مُبطَل انتقائياً
+│   ├── backup_service.dart    # النسخ الاحتياطي المحلي (GZip + SHA-256 + كتابة ذرية)
+│   └── demo_data.dart         # بيانات مبدئية وتجريبية
+├── ui/                        # الثيم والمكونات المشتركة
+└── screens/                   # الشاشات
+test/                          # وحدات + تكامل (Hive حقيقي) + أداء
+docs/                          # التصميم، القرارات (ADR)، المتطلبات، أدلة التشغيل
+```
+
+## التوثيق
+
+| الملف | المحتوى |
+|---|---|
+| [STATUS.md](STATUS.md) | الحالة الآن وخارطة الطريق |
+| [docs/design/architecture.md](docs/design/architecture.md) | المعمارية وتدفق البيانات |
+| [docs/design/performance.md](docs/design/performance.md) | الأداء والذاكرة والكاش |
+| [docs/design/backup.md](docs/design/backup.md) | النسخ الاحتياطي والاسترجاع |
+| [docs/design/ux-review.md](docs/design/ux-review.md) | مراجعة الواجهة وتجربة الاستخدام |
+| [docs/adr/](docs/adr/) | سجل القرارات المعمارية |
+| [docs/runbooks/](docs/runbooks/) | الإصدار، واسترجاع البيانات |
+| [CHANGELOG.md](CHANGELOG.md) · [LESSONS.md](LESSONS.md) · [CONTRIBUTING.md](CONTRIBUTING.md) · [SECURITY.md](SECURITY.md) | |
+
+## الترخيص
+
+All rights reserved. © 2026. الخط: IBM Plex Sans Arabic بترخيص SIL OFL 1.1 (`assets/fonts/OFL.txt`).

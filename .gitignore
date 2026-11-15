@@ -43,3 +43,12 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# أسرار التوقيع — لا تُرفع أبداً
+/android/key.properties
+*.jks
+*.keystore
+
+# ملفات محلية
+server.log
+*.hisab
