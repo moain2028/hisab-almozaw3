@@ -40,14 +40,30 @@ void main() {
   });
 
   test('الدفع الزائد يصير رصيداً للبقالة', () {
-    final txs = [deliver('2025-01-01', [line('z', 1, 2000)]), pay('2025-01-01', 5000)];
+    final txs = [
+      deliver('2025-01-01', [line('z', 1, 2000)]),
+      pay('2025-01-01', 5000),
+    ];
     expect(shopBalance(shop, txs), -2000);
   });
 
   test('البضاعة في السيارة', () {
     final tr = TraderTx(
-        id: 't', traderId: 'tr', type: TraderTxType.pickup, day: '2025-01-01', createdAt: 0, lines: [line('z', 10, 1900)]);
-    final rows = dayStock('2025-01-01', [deliver('2025-01-01', [line('z', 7.5, 2000)])], [tr], []);
+      id: 't',
+      traderId: 'tr',
+      type: TraderTxType.pickup,
+      day: '2025-01-01',
+      createdAt: 0,
+      lines: [line('z', 10, 1900)],
+    );
+    final rows = dayStock(
+      '2025-01-01',
+      [
+        deliver('2025-01-01', [line('z', 7.5, 2000)]),
+      ],
+      [tr],
+      [],
+    );
     expect(rows.single.onHand, 2.5);
     expect(tr.amount, 19000);
   });
@@ -57,7 +73,10 @@ void main() {
       from: '2025-01-01',
       to: '2025-01-31',
       shops: [shop],
-      shopTxs: [deliver('2025-01-05', [line('z', 2, 2000, 1500)]), pay('2025-01-05', 1000)],
+      shopTxs: [
+        deliver('2025-01-05', [line('z', 2, 2000, 1500)]),
+        pay('2025-01-05', 1000),
+      ],
       traderTxs: const [],
       expenses: [Expense(id: 'e', day: '2025-01-05', amount: 200, category: 'بنزين', createdAt: 0)],
     );
