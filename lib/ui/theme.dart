@@ -1,4 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+
+import '../data/store.dart';
+
+/// اهتزاز خفيف عند الأفعال المهمة (حفظ، تحصيل، تبديل تبويب) — يمكن إيقافه من الإعدادات
+void haptic(BuildContext c, {bool strong = false}) {
+  if (!c.read<Store>().haptics) return;
+  strong ? HapticFeedback.mediumImpact() : HapticFeedback.selectionClick();
+}
+
+/// أرقام بعرض ثابت حتى لا تهتز الأعمدة عند تغيّر القيم
+const tabular = [FontFeature.tabularFigures()];
 
 class AppColors {
   static const primary = Color(0xFF0F766E);
@@ -8,7 +21,7 @@ class AppColors {
   static const creditDark = Color(0xFF90CAF9);
   static const paid = Color(0xFF2E7D32);
   static const paidDark = Color(0xFFA5D6A7);
-  static const warn = Color(0xFFEF6C00);
+  static const warn = Color(0xFFC25400); // تباين 4.6:1 على الأبيض (WCAG AA)
 }
 
 bool isDark(BuildContext c) => Theme.of(c).brightness == Brightness.dark;
@@ -17,25 +30,20 @@ Color creditColor(BuildContext c) => isDark(c) ? AppColors.creditDark : AppColor
 Color paidColor(BuildContext c) => isDark(c) ? AppColors.paidDark : AppColors.paid;
 
 /// لون الرصيد: أحمر لو عليه، أزرق لو له، أخضر لو مسدد
-Color balanceColor(BuildContext c, int v) =>
-    v > 0 ? debtColor(c) : (v < 0 ? creditColor(c) : paidColor(c));
+Color balanceColor(BuildContext c, int v) => v > 0 ? debtColor(c) : (v < 0 ? creditColor(c) : paidColor(c));
 
 String balanceLabel(int v) => v > 0 ? 'عليه' : (v < 0 ? 'له' : 'مسدّد');
 
 ThemeData buildTheme(Brightness b) {
   final cs = ColorScheme.fromSeed(seedColor: AppColors.primary, brightness: b);
-  final base = ThemeData(useMaterial3: true, colorScheme: cs, brightness: b);
+  final base = ThemeData(useMaterial3: true, colorScheme: cs, brightness: b, fontFamily: 'Plex');
   return base.copyWith(
     scaffoldBackgroundColor: b == Brightness.light ? const Color(0xFFF4F7F6) : cs.surface,
     appBarTheme: AppBarTheme(
       centerTitle: false,
       backgroundColor: b == Brightness.light ? const Color(0xFFF4F7F6) : cs.surface,
       surfaceTintColor: Colors.transparent,
-      titleTextStyle: TextStyle(
-        fontSize: 21,
-        fontWeight: FontWeight.w800,
-        color: cs.onSurface,
-      ),
+      titleTextStyle: TextStyle(fontSize: 21, fontWeight: FontWeight.w700, color: cs.onSurface),
     ),
     cardTheme: CardThemeData(
       elevation: 0,
@@ -68,14 +76,10 @@ ThemeData buildTheme(Brightness b) {
         textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
       ),
     ),
-    dialogTheme: DialogThemeData(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-    ),
+    dialogTheme: DialogThemeData(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22))),
     navigationBarTheme: NavigationBarThemeData(
       height: 68,
-      labelTextStyle: WidgetStateProperty.all(
-        const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
-      ),
+      labelTextStyle: WidgetStateProperty.all(const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
     ),
     snackBarTheme: const SnackBarThemeData(behavior: SnackBarBehavior.floating),
   );

@@ -17,15 +17,7 @@ String shiftDay(String key, int days) {
   return dayKey(DateTime(d.year, d.month, d.day + days));
 }
 
-const _weekDays = [
-  'الاثنين',
-  'الثلاثاء',
-  'الأربعاء',
-  'الخميس',
-  'الجمعة',
-  'السبت',
-  'الأحد',
-];
+const _weekDays = ['الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت', 'الأحد'];
 const _months = [
   'يناير',
   'فبراير',
@@ -97,10 +89,7 @@ String qtyText(double q) {
   } else if ((frac - 0.75).abs() < 0.001) {
     out = whole == 0 ? '¾' : '$whole¾';
   } else {
-    out = a
-        .toStringAsFixed(2)
-        .replaceFirst(RegExp(r'0+$'), '')
-        .replaceFirst(RegExp(r'\.$'), '');
+    out = a.toStringAsFixed(2).replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '');
   }
   final r = neg ? '-$out' : out;
   // عزل اتجاه النص حتى لا ينقلب 1½ إلى ½1 داخل النص العربي
@@ -132,10 +121,9 @@ int? parseMoney(String s) {
 }
 
 double? parseQty(String s) {
-  final t = normalizeDigits(s.replaceAll('\u2066', '').replaceAll('\u2069', ''))
-      .replaceAll('¼', '.25')
-      .replaceAll('½', '.5')
-      .replaceAll('¾', '.75');
+  final t = normalizeDigits(
+    s.replaceAll('\u2066', '').replaceAll('\u2069', ''),
+  ).replaceAll('¼', '.25').replaceAll('½', '.5').replaceAll('¾', '.75');
   return double.tryParse(t.startsWith('.') ? '0$t' : t);
 }
 

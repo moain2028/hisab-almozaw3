@@ -42,8 +42,7 @@ class ShopDay {
 
   bool get hasDelivery => delivered > 0;
   bool get hasPayment => paid > 0;
-  bool get hasActivity =>
-      delivered > 0 || returned > 0 || paid > 0 || discount > 0;
+  bool get hasActivity => delivered > 0 || returned > 0 || paid > 0 || discount > 0;
 }
 
 ShopDay shopDay(Shop shop, Iterable<ShopTx> txs, String day) {
@@ -67,13 +66,7 @@ ShopDay shopDay(Shop shop, Iterable<ShopTx> txs, String day) {
       }
     }
   }
-  return ShopDay(
-    before: before,
-    delivered: delivered,
-    returned: returned,
-    paid: paid,
-    discount: discount,
-  );
+  return ShopDay(before: before, delivered: delivered, returned: returned, paid: paid, discount: discount);
 }
 
 int shopBalance(Shop shop, Iterable<ShopTx> txs) {
@@ -100,9 +93,7 @@ int _cmpShop(ShopTx a, ShopTx b) {
 List<StatementRow<ShopTx>> shopStatement(Shop shop, Iterable<ShopTx> txs) {
   final list = txs.where((t) => t.shopId == shop.id).toList()..sort(_cmpShop);
   var bal = shop.openingBalance;
-  return [
-    for (final t in list) StatementRow(t, bal += t.effect),
-  ];
+  return [for (final t in list) StatementRow(t, bal += t.effect)];
 }
 
 /// آخر يوم تحصيل للبقالة (لمعرفة من تأخر في السداد)
@@ -125,19 +116,14 @@ int traderBalance(Trader trader, Iterable<TraderTx> txs) {
   return b;
 }
 
-List<StatementRow<TraderTx>> traderStatement(
-  Trader trader,
-  Iterable<TraderTx> txs,
-) {
+List<StatementRow<TraderTx>> traderStatement(Trader trader, Iterable<TraderTx> txs) {
   final list = txs.where((t) => t.traderId == trader.id).toList()
     ..sort((a, b) {
       final c = a.day.compareTo(b.day);
       return c != 0 ? c : a.createdAt.compareTo(b.createdAt);
     });
   var bal = trader.openingBalance;
-  return [
-    for (final t in list) StatementRow(t, bal += t.effect),
-  ];
+  return [for (final t in list) StatementRow(t, bal += t.effect)];
 }
 
 // ------------------------------------------------------------------ البضاعة في السيارة
@@ -157,17 +143,9 @@ class StockRow {
 }
 
 /// حركة البضاعة في يوم: ما استلمته من التاجر مقابل ما وزّعته
-List<StockRow> dayStock(
-  String day,
-  Iterable<ShopTx> shopTxs,
-  Iterable<TraderTx> traderTxs,
-  List<Product> products,
-) {
+List<StockRow> dayStock(String day, Iterable<ShopTx> shopTxs, Iterable<TraderTx> traderTxs, List<Product> products) {
   final rows = <String, StockRow>{};
-  StockRow row(TxLine l) => rows.putIfAbsent(
-        l.productId,
-        () => StockRow(l.productId, l.name, l.unit),
-      );
+  StockRow row(TxLine l) => rows.putIfAbsent(l.productId, () => StockRow(l.productId, l.name, l.unit));
 
   for (final t in traderTxs) {
     if (t.day != day) continue;
@@ -184,9 +162,7 @@ List<StockRow> dayStock(
     }
   }
   final order = {for (var i = 0; i < products.length; i++) products[i].id: i};
-  return rows.values.toList()
-    ..sort((a, b) =>
-        (order[a.productId] ?? 999).compareTo(order[b.productId] ?? 999));
+  return rows.values.toList()..sort((a, b) => (order[a.productId] ?? 999).compareTo(order[b.productId] ?? 999));
 }
 
 // ------------------------------------------------------------------ التقارير

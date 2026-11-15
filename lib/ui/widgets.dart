@@ -6,10 +6,25 @@ import '../core/format.dart';
 import '../data/store.dart';
 import 'theme.dart';
 
-void toast(BuildContext c, String msg) {
+void toast(BuildContext c, String msg, {SnackBarAction? action}) {
   ScaffoldMessenger.of(c)
     ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(msg)));
+    ..showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        action: action,
+        duration: Duration(seconds: action == null ? 3 : 5),
+      ),
+    );
+}
+
+/// إشعار بعد الحذف مع زر "تراجع" — بدل نوافذ التأكيد المزعجة للأفعال القابلة للعكس
+void undoToast(BuildContext c, String msg, Future<void> Function() undo) {
+  toast(
+    c,
+    msg,
+    action: SnackBarAction(label: 'تراجع', onPressed: () => undo()),
+  );
 }
 
 /// شريط اختيار اليوم: ‹ اليوم ›
@@ -57,7 +72,7 @@ class DayBar extends StatelessWidget {
                     Text(
                       store.isToday ? 'اليوم · ${arDay(day)}' : arDay(day),
                       style: TextStyle(
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                         fontSize: 15,
                         color: store.isToday ? cs.onPrimaryContainer : AppColors.warn,
                       ),
@@ -91,7 +106,7 @@ class MoneyText extends StatelessWidget {
     super.key,
     this.size = 16,
     this.color,
-    this.weight = FontWeight.w800,
+    this.weight = FontWeight.w700,
     this.showCurrency = false,
     this.abs = false,
   });
@@ -107,17 +122,19 @@ class MoneyText extends StatelessWidget {
     final cur = context.select<Store, String>((s) => s.currency);
     final v = abs ? value.abs() : value;
     return Text.rich(
-      TextSpan(children: [
-        TextSpan(
-          text: '\u2066${money(v)}\u2069',
-          style: TextStyle(fontSize: size, fontWeight: weight, color: color),
-        ),
-        if (showCurrency)
+      TextSpan(
+        children: [
           TextSpan(
-            text: ' $cur',
-            style: TextStyle(fontSize: size * 0.55, fontWeight: FontWeight.w600, color: color),
+            text: '\u2066${money(v)}\u2069',
+            style: TextStyle(fontSize: size, fontWeight: weight, color: color, fontFeatures: tabular, height: 1.15),
           ),
-      ]),
+          if (showCurrency)
+            TextSpan(
+              text: ' $cur',
+              style: TextStyle(fontSize: size * 0.55, fontWeight: FontWeight.w600, color: color),
+            ),
+        ],
+      ),
       textDirection: TextDirection.rtl,
     );
   }
@@ -136,11 +153,17 @@ class BalanceBadge extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        Text(money(balance.abs()), style: TextStyle(fontSize: size, fontWeight: FontWeight.w800, color: c)),
+        Text(
+          money(balance.abs()),
+          style: TextStyle(fontSize: size, fontWeight: FontWeight.w700, color: c, fontFeatures: tabular),
+        ),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
           decoration: BoxDecoration(color: c.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8)),
-          child: Text(balanceLabel(balance), style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: c)),
+          child: Text(
+            balanceLabel(balance),
+            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: c),
+          ),
         ),
       ],
     );
@@ -149,15 +172,7 @@ class BalanceBadge extends StatelessWidget {
 
 /// بطاقة رقم صغيرة في الملخصات
 class StatBox extends StatelessWidget {
-  const StatBox({
-    super.key,
-    required this.label,
-    required this.value,
-    this.icon,
-    this.color,
-    this.onTap,
-    this.sub,
-  });
+  const StatBox({super.key, required this.label, required this.value, this.icon, this.color, this.onTap, this.sub});
   final String label;
   final int value;
   final IconData? icon;
@@ -179,30 +194,36 @@ class StatBox extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(children: [
-                if (icon != null) ...[
-                  Container(
-                    padding: const EdgeInsets.all(5),
-                    decoration: BoxDecoration(color: c.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8)),
-                    child: Icon(icon, size: 16, color: c),
-                  ),
-                  const SizedBox(width: 6),
-                ],
-                Expanded(
-                  child: Text(label,
+              Row(
+                children: [
+                  if (icon != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(5),
+                      decoration: BoxDecoration(
+                        color: c.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(icon, size: 16, color: c),
+                    ),
+                    const SizedBox(width: 6),
+                  ],
+                  Expanded(
+                    child: Text(
+                      label,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 12.5, color: cs.onSurfaceVariant, fontWeight: FontWeight.w600)),
-                ),
-              ]),
+                      style: TextStyle(fontSize: 12.5, color: cs.onSurfaceVariant, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 6),
               FittedBox(
                 fit: BoxFit.scaleDown,
                 alignment: AlignmentDirectional.centerStart,
                 child: MoneyText(value, size: 20, color: c),
               ),
-              if (sub != null)
-                Text(sub!, style: TextStyle(fontSize: 11.5, color: cs.onSurfaceVariant)),
+              if (sub != null) Text(sub!, style: TextStyle(fontSize: 11.5, color: cs.onSurfaceVariant)),
             ],
           ),
         ),
@@ -224,15 +245,26 @@ class KvRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3.5),
-      child: Row(children: [
-        Expanded(
-          child: Text(label,
-              style: TextStyle(fontSize: bold ? 16 : 14.5, fontWeight: bold ? FontWeight.w800 : FontWeight.w500)),
-        ),
-        Text('$prefix${money(value)}',
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(fontSize: bold ? 16 : 14.5, fontWeight: bold ? FontWeight.w700 : FontWeight.w500),
+            ),
+          ),
+          Text(
+            '$prefix${money(value)}',
             textDirection: TextDirection.ltr,
-            style: TextStyle(fontSize: bold ? 18 : 15, fontWeight: FontWeight.w800, color: color)),
-      ]),
+            style: TextStyle(
+              fontSize: bold ? 18 : 15,
+              fontWeight: FontWeight.w700,
+              color: color,
+              fontFeatures: tabular,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -245,10 +277,14 @@ class SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(6, 14, 6, 6),
-      child: Row(children: [
-        Expanded(child: Text(text, style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.w800))),
-        ?trailing,
-      ]),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(text, style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.w700)),
+          ),
+          ?trailing,
+        ],
+      ),
     );
   }
 }
@@ -263,12 +299,19 @@ class EmptyState extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Icon(icon, size: 56, color: cs.outline),
-        const SizedBox(height: 12),
-        Text(text, textAlign: TextAlign.center, style: TextStyle(fontSize: 15, color: cs.onSurfaceVariant)),
-        if (action != null) ...[const SizedBox(height: 16), action!],
-      ]),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 56, color: cs.outline),
+          const SizedBox(height: 12),
+          Text(
+            text,
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 15, color: cs.onSurfaceVariant),
+          ),
+          if (action != null) ...[const SizedBox(height: 16), action!],
+        ],
+      ),
     );
   }
 }
@@ -281,25 +324,39 @@ class ShopAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final letter = name.trim().isEmpty ? '؟' : name.trim().replaceFirst(RegExp(r'^(بقالة|تموينات|سوبرماركت|محل|محلات)\s+'), '').replaceFirst(RegExp(r'^ال(?=..)'), '').characters.first;
-    return Stack(clipBehavior: Clip.none, children: [
-      CircleAvatar(
-        radius: 22,
-        backgroundColor: active ? cs.primary : cs.surfaceContainerHighest,
-        foregroundColor: active ? cs.onPrimary : cs.onSurfaceVariant,
-        child: Text(letter, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
-      ),
-      if (done)
-        PositionedDirectional(
-          bottom: -2,
-          end: -2,
-          child: Container(
-            decoration: BoxDecoration(color: paidColor(context), shape: BoxShape.circle, border: Border.all(color: cs.surface, width: 2)),
-            padding: const EdgeInsets.all(1.5),
-            child: const Icon(Icons.check, size: 12, color: Colors.white),
-          ),
+    final letter = name.trim().isEmpty
+        ? '؟'
+        : name
+              .trim()
+              .replaceFirst(RegExp(r'^(بقالة|تموينات|سوبرماركت|محل|محلات)\s+'), '')
+              .replaceFirst(RegExp(r'^ال(?=..)'), '')
+              .characters
+              .first;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        CircleAvatar(
+          radius: 22,
+          backgroundColor: active ? cs.primary : cs.surfaceContainerHighest,
+          foregroundColor: active ? cs.onPrimary : cs.onSurfaceVariant,
+          child: Text(letter, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18)),
         ),
-    ]);
+        if (done)
+          PositionedDirectional(
+            bottom: -2,
+            end: -2,
+            child: Container(
+              decoration: BoxDecoration(
+                color: paidColor(context),
+                shape: BoxShape.circle,
+                border: Border.all(color: cs.surface, width: 2),
+              ),
+              padding: const EdgeInsets.all(1.5),
+              child: const Icon(Icons.check, size: 12, color: Colors.white),
+            ),
+          ),
+      ],
+    );
   }
 }
 
@@ -355,7 +412,7 @@ class NumberField extends StatelessWidget {
       keyboardType: TextInputType.numberWithOptions(decimal: decimal),
       inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9٠-٩۰-۹.,٫٬]'))],
       textAlign: TextAlign.center,
-      style: TextStyle(fontSize: big ? 28 : 17, fontWeight: FontWeight.w800),
+      style: TextStyle(fontSize: big ? 28 : 17, fontWeight: FontWeight.w700),
       decoration: InputDecoration(labelText: label, hintText: hint, suffixText: suffix),
       onChanged: onChanged,
       onSubmitted: onSubmitted,
@@ -369,7 +426,13 @@ Future<int?> askMoney(BuildContext c, String title, {int? initial, String? hint}
     context: c,
     builder: (ctx) => AlertDialog(
       title: Text(title),
-      content: NumberField(controller: ctl, autofocus: true, hint: hint, big: true, onSubmitted: (v) => Navigator.pop(ctx, v)),
+      content: NumberField(
+        controller: ctl,
+        autofocus: true,
+        hint: hint,
+        big: true,
+        onSubmitted: (v) => Navigator.pop(ctx, v),
+      ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
         FilledButton(onPressed: () => Navigator.pop(ctx, ctl.text), child: const Text('حفظ')),
@@ -380,16 +443,34 @@ Future<int?> askMoney(BuildContext c, String title, {int? initial, String? hint}
 }
 
 Future<double?> askQty(BuildContext c, String title, {double? initial}) async {
-  final ctl = TextEditingController(text: initial == null || initial == 0 ? '' : qtyText(initial).replaceAll('\u2066', '').replaceAll('\u2069', '').replaceAll('¼', '.25').replaceAll('½', '.5').replaceAll('¾', '.75'));
+  final ctl = TextEditingController(
+    text: initial == null || initial == 0
+        ? ''
+        : qtyText(initial)
+              .replaceAll('\u2066', '')
+              .replaceAll('\u2069', '')
+              .replaceAll('¼', '.25')
+              .replaceAll('½', '.5')
+              .replaceAll('¾', '.75'),
+  );
   final r = await showDialog<String>(
     context: c,
     builder: (ctx) => AlertDialog(
       title: Text(title),
-      content: Column(mainAxisSize: MainAxisSize.min, children: [
-        NumberField(controller: ctl, autofocus: true, decimal: true, big: true, onSubmitted: (v) => Navigator.pop(ctx, v)),
-        const SizedBox(height: 8),
-        const Text('مثال: 2.5 = اثنين ونص ، 0.25 = ربع', style: TextStyle(fontSize: 12.5)),
-      ]),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          NumberField(
+            controller: ctl,
+            autofocus: true,
+            decimal: true,
+            big: true,
+            onSubmitted: (v) => Navigator.pop(ctx, v),
+          ),
+          const SizedBox(height: 8),
+          const Text('مثال: 2.5 = اثنين ونص ، 0.25 = ربع', style: TextStyle(fontSize: 12.5)),
+        ],
+      ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
         FilledButton(onPressed: () => Navigator.pop(ctx, ctl.text), child: const Text('حفظ')),
