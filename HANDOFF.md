@@ -67,5 +67,7 @@ python3 tool/make_update_json.py --help         # توليد update.json
 - `https://api.alabbasi.uk/v1/apps/hisab-almozaw3/{update.json,license.json,ping}`
 - لوحة الأجهزة: `https://admin.alabbasi.uk` (Access OTP) · التنزيلات: `https://downloads.alabbasi.uk`
 - كل الأسرار (Cloudflare، ADMIN_TOKEN، مفتاح توقيع هذا التطبيق وكود الترخيص) في `alabbasi-publish/secrets/`.
-- **حتى 2.5.0**: النسخ المثبّتة تقرأ من `hisab-almozaw3-dist`، لذا حدّث المكانين في كل إصدار (راجع `docs/publish-new-app.md` §ج هناك).
-- التالي (2.5.0): `RemoteConfig` يقرأ من api.alabbasi.uk أولاً وGitHub احتياطياً، ويرسل نبضاً بـ deviceId محفوظ (راجع `docs/app-integration.md`).
+- **2.5.0 منشور** ويقرأ من المنصة أولاً. النسخ ≤2.4.0 ما زالت تقرأ من `hisab-almozaw3-dist`، لذا حدّث المكانين في كل إصدار. `release-flutter.sh` في المنصة يفعل ذلك تلقائياً.
+- **الإصدار التالي بأمر واحد** (من مستودع المنصة): ارفع `version` في pubspec.yaml ثم
+  `bash scripts/release-flutter.sh hisab-almozaw3 ~/flutter_app moain2028/hisab-almozaw3-dist "ما الجديد"`
+- التالي: نسخ احتياطي إلى Google Drive (ADR 0013). يحتاج من المالك إنشاء OAuth Android client في Google Cloud (الحزمة + SHA-1 `8A:F2:BC:CA:C3:D9:E8:47:57:79:2E:AF:92:7A:25:79:08:E2:39:C5`).

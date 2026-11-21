@@ -19,6 +19,11 @@
 /// | لا إنترنت / ملف تالف    | آخر حالة معروفة (لا قفل خاطئ؛ أول تشغيل بلا نت = مسموح)   |
 ///
 /// - الفحص: عند التشغيل + عند الرجوع للتطبيق (فاصل أدنى 10 دقائق).
+///
+/// **القفل الفردي (منذ 2.5.0)**: مع كل فحص يُرسل نبض إلى منصة النشر
+/// (`POST api.alabbasi.uk/v1/apps/hisab-almozaw3/ping`) بمعرّف عشوائي ثابت للجهاز.
+/// المدير يقفل/يفتح الجهاز من `admin.alabbasi.uk`. قفل الجهاز **لا يفتحه كود التفعيل**
+/// (وإلا فقد معناه)؛ يُفتح من اللوحة فقط. لا شبكة = آخر حالة معروفة للجهاز.
 /// - **البيانات لا تُمس أبداً**: القفل يمنع الواجهة فقط، والنسخ الاحتياطي يبقى يعمل.
 /// - الحالة تُحفظ في صندوق Hive `meta` (نفس تخزين التطبيق، لا حزمة إضافية).
 library;
@@ -26,29 +31,47 @@ library;
 import 'dart:async';
 
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 
 import '../data/store.dart';
 import 'remote_config.dart';
+import 'update_service.dart';
 
 @immutable
 class LicenseState {
-  const LicenseState({required this.allowed, this.message = '', this.codeAccepted = true, this.offline = false});
+  const LicenseState({
+    required this.allowed,
+    this.message = '',
+    this.codeAccepted = true,
+    this.offline = false,
+    this.deviceLocked = false,
+  });
   final bool allowed;
   final String message;
 
   /// هل يوجد كود يمكن قبوله أصلاً (false عند حذف الملف)
   final bool codeAccepted;
   final bool offline;
+
+  /// مقفول من لوحة الأجهزة (لا يُفتح بالكود)
+  final bool deviceLocked;
 }
 
+/// بيانات الجهاز للنبض (null = لا نبض، مثل معاينة الويب)
+typedef DeviceInfoProvider = Future<Map<String, Object?>?> Function();
+
 class LicenseService extends ChangeNotifier {
-  LicenseService(this.store, {RemoteFetcher? fetcher}) : fetcher = fetcher ?? RemoteFetcher();
+  LicenseService(this.store, {RemoteFetcher? fetcher, DeviceInfoProvider? deviceInfo})
+    : fetcher = fetcher ?? RemoteFetcher(),
+      deviceInfo = deviceInfo ?? _androidDeviceInfo;
 
   final Store store;
   final RemoteFetcher fetcher;
+  final DeviceInfoProvider deviceInfo;
+  static const deviceLockedMessage = 'تم إيقاف التطبيق على هذا الجهاز. تواصل مع المطوّر لإعادة تفعيله.';
   static const file = 'license.json';
   static const recheckEvery = Duration(minutes: 10);
 
@@ -59,6 +82,8 @@ class LicenseService extends ChangeNotifier {
   static const _kDeleted = 'lic_deleted';
   static const _kSeen = 'lic_seen';
   static const _kLastCheck = 'lic_last_check';
+  static const _kDevBlocked = 'dev_blocked';
+  static const kDeviceId = 'device_id';
 
   LicenseState? _state;
   DateTime? _lastCheck;
@@ -74,6 +99,7 @@ class LicenseService extends ChangeNotifier {
   /// يعرض آخر حالة محفوظة فوراً (بلا انتظار الشبكة) ثم يحدّث في الخلفية
   /// لا ينتظر الشبكة أبداً: الإقلاع لا يتأخر حتى بدون إنترنت
   Future<void> init() async {
+    deviceId();
     _state = _fromCache();
     notifyListeners();
     unawaited(refresh());
@@ -101,14 +127,65 @@ class LicenseService extends ChangeNotifier {
     }
   }
 
-  /// المنطق الكامل (قابل للاختبار عبر fetcher وهمي)
+  /// أول 12 حرفاً من معرّف الجهاز للعرض (قراءة فقط، لا يكتب أثناء البناء). فارغ قبل أول تشغيل.
+  String get shortDeviceId {
+    final id = store.meta<String>(kDeviceId) ?? '';
+    return id.length >= 12 ? id.substring(0, 12) : id;
+  }
+
+  /// معرّف عشوائي ثابت لهذا التثبيت (48 حرف hex). لا IMEI ولا معرّفات نظام.
+  String deviceId() {
+    final cur = store.meta<String>(kDeviceId);
+    if (cur != null && RegExp(r'^[0-9a-f]{48}$').hasMatch(cur)) return cur;
+    final r = Random.secure();
+    final id = List.generate(24, (_) => r.nextInt(256).toRadixString(16).padLeft(2, '0')).join();
+    unawaited(store.putMetaSilently({kDeviceId: id}));
+    return id;
+  }
+
+  static Future<Map<String, Object?>?> _androidDeviceInfo() async {
+    if (!UpdateService.supported) return null;
+    final i = await UpdateService.installed();
+    if (i == null) return null;
+    return {'version': i.versionName, 'build': i.build, 'abi': i.abi, 'sdk': i.sdkInt, 'model': i.model};
+  }
+
+  Future<PingResult?> _ping() async {
+    try {
+      final info = await deviceInfo();
+      if (info == null) return null;
+      return await fetcher.ping({'deviceId': deviceId(), ...info});
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// المنطق الكامل (قابل للاختبار عبر fetcher وهمي): الترخيص العام ثم قفل الجهاز فوقه
   Future<LicenseState> check() async {
-    final remote = await fetcher.fetch(file);
-    if (remote == null) return _fromCache(offline: true);
+    final r = await Future.wait<Object?>([fetcher.fetch(file), _ping()]);
+    final base = await _checkLicense(r[0] as RemoteFile?);
+    final p = r[1] as PingResult?;
+    if (p != null) await _put({_kDevBlocked: !p.deviceActive});
+    return _withDevice(base);
+  }
+
+  LicenseState _withDevice(LicenseState base) {
+    if (store.meta<bool>(_kDevBlocked) != true) return base;
+    return LicenseState(
+      allowed: false,
+      message: deviceLockedMessage,
+      codeAccepted: false,
+      offline: base.offline,
+      deviceLocked: true,
+    );
+  }
+
+  Future<LicenseState> _checkLicense(RemoteFile? remote) async {
+    if (remote == null) return _licenseFromCache(offline: true);
 
     if (remote.notFound) {
       // أمان: لا نقفل بسبب ملف لم يُرفع بعد
-      if (store.meta<bool>(_kSeen) != true) return _fromCache(offline: true);
+      if (store.meta<bool>(_kSeen) != true) return _licenseFromCache(offline: true);
       const msg = 'انتهى ترخيص هذه النسخة. يرجى التواصل مع المطوّر.';
       await _put({_kBlocked: true, _kDeleted: true, _kMessage: msg, _kCode: '', _kLastCheck: _now});
       return const LicenseState(allowed: false, message: msg, codeAccepted: false);
@@ -132,6 +209,7 @@ class LicenseService extends ChangeNotifier {
 
   /// إدخال كود التفعيل. يتحقق مقابل الملف الحي إن أمكن، وإلا آخر كود معروف.
   Future<bool> unlock(String input) async {
+    if (store.meta<bool>(_kDevBlocked) == true) return false;
     final remote = await fetcher.fetch(file);
     if (remote != null && remote.notFound) return false;
     if (remote?.data != null) {
@@ -148,7 +226,9 @@ class LicenseService extends ChangeNotifier {
     return ok;
   }
 
-  LicenseState _fromCache({bool offline = false}) {
+  LicenseState _fromCache({bool offline = false}) => _withDevice(_licenseFromCache(offline: offline));
+
+  LicenseState _licenseFromCache({bool offline = false}) {
     final blocked = store.meta<bool>(_kBlocked) ?? false;
     final deleted = store.meta<bool>(_kDeleted) ?? false;
     return LicenseState(

@@ -300,7 +300,8 @@ class _RemoteCard extends StatelessWidget {
             subtitle: Text(
               '${st.allowed ? 'مفعّل' : 'موقوف'}'
               '${st.offline ? ' · بدون اتصال (آخر حالة معروفة)' : ''}'
-              '${checked == null ? '' : ' · آخر فحص ${relativeDay(dayKey(checked))} ${timeOf(checked.millisecondsSinceEpoch)}'}',
+              '${checked == null ? '' : ' · آخر فحص ${relativeDay(dayKey(checked))} ${timeOf(checked.millisecondsSinceEpoch)}'}'
+              '${lic.shortDeviceId.isEmpty ? '' : '\nمعرّف الجهاز: ${lic.shortDeviceId}'}',
             ),
             trailing: IconButton(
               tooltip: 'فحص الآن',

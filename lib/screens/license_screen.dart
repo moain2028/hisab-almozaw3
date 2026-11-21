@@ -109,7 +109,14 @@ class _LicenseLockScreenState extends State<LicenseLockScreen> {
                 ),
                 // طلب كود التفعيل مباشرة من المطوّر (واتساب)
                 FilledButton.tonalIcon(
-                  onPressed: () => openUri(context, Developer.whatsapp('أريد كود تفعيل تطبيق حساب الموزع')),
+                  onPressed: () => openUri(
+                    context,
+                    Developer.whatsapp(
+                      st.deviceLocked
+                          ? 'أريد إعادة تفعيل حساب الموزع على جهازي (${lic.shortDeviceId})'
+                          : 'أريد كود تفعيل تطبيق حساب الموزع',
+                    ),
+                  ),
                   style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
                   icon: const Icon(Icons.chat_rounded),
                   label: const Text('اطلب الكود من المطوّر (واتساب)'),
@@ -120,6 +127,16 @@ class _LicenseLockScreenState extends State<LicenseLockScreen> {
                   icon: const Icon(Icons.cloud_download_outlined),
                   label: const Text('نسخة احتياطية من بياناتي'),
                 ),
+                // معرّف الجهاز: يرسله المستخدم للمطوّر ليجده في لوحة الأجهزة
+                if (st.deviceLocked && lic.shortDeviceId.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: Space.sm),
+                    child: SelectableText(
+                      'معرّف الجهاز: ${lic.shortDeviceId}',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: cs.onSurfaceVariant),
+                    ),
+                  ),
                 if (st.offline)
                   const Padding(
                     padding: EdgeInsets.only(top: Space.sm),

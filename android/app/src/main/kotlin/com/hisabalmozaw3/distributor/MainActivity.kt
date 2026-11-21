@@ -12,7 +12,7 @@ import java.io.File
 
 /**
  * قناة app.update — التحديث من داخل التطبيق (UpdateService في Dart):
- *   info                -> { versionCode, versionName, abi, nativeLibDir, sdkInt }
+ *   info                -> { versionCode, versionName, abi, nativeLibDir, sdkInt, model }
  *   canInstall          -> هل يُسمح بتثبيت حزم من مصادر غير معروفة (أندرويد 8+)
  *   openInstallSettings -> يفتح شاشة "تثبيت تطبيقات غير معروفة" لهذا التطبيق
  *   install(path)       -> يفتح مثبّت النظام على APK داخل cache/updates (FileProvider)
@@ -34,6 +34,8 @@ class MainActivity : FlutterActivity() {
                             // مجلد مكتبات الـ APK المثبّت (…/lib/arm64 أو …/lib/arm) — يحدد أي APK نُنزّل
                             "nativeLibDir" to (applicationInfo.nativeLibraryDir ?: ""),
                             "sdkInt" to Build.VERSION.SDK_INT,
+                            // للوحة الأجهزة فقط (admin.alabbasi.uk)
+                            "model" to "${Build.MANUFACTURER} ${Build.MODEL}".trim(),
                         ))
                     }
                     "canInstall" -> result.success(canInstall())

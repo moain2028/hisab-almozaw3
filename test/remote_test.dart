@@ -14,12 +14,30 @@ import 'package:hive/hive.dart';
 class FakeFetcher extends RemoteFetcher {
   RemoteFile? next;
   int calls = 0;
+
+  /// رد النبض: null = لا شبكة
+  PingResult? pingNext;
+  final pings = <Map<String, Object?>>[];
   @override
   Future<RemoteFile?> fetch(String file) async {
     calls++;
     return next;
   }
+
+  @override
+  Future<PingResult?> ping(Map<String, Object?> body) async {
+    pings.add(body);
+    return pingNext;
+  }
 }
+
+Future<Map<String, Object?>?> fakeDevice() async => {
+  'version': '2.5.0',
+  'build': 250,
+  'abi': 'arm64',
+  'sdk': 34,
+  'model': 'Test X',
+};
 
 RemoteFile lic(bool active, {String code = 'ABC123', String message = 'رسالة'}) =>
     RemoteFile.ok({'active': active, 'code': code, 'message': message});
@@ -145,6 +163,88 @@ void main() {
       await l3.init();
       expect(sw.elapsedMilliseconds, lessThan(500));
       expect(l3.allowed, isTrue);
+    });
+  });
+
+  group('قفل الجهاز من المنصة (2.5.0)', () {
+    late LicenseService d;
+    setUp(() => d = LicenseService(store, fetcher: f, deviceInfo: fakeDevice));
+
+    test('النبض يرسل معرّفاً ثابتاً (48 hex) وبيانات الجهاز', () async {
+      f.next = lic(true);
+      f.pingNext = const PingResult(deviceActive: true);
+      await d.check();
+      await d.check();
+      expect(f.pings, hasLength(2));
+      final id = f.pings.first['deviceId'] as String;
+      expect(id, matches(RegExp(r'^[0-9a-f]{48}$')));
+      expect(f.pings.last['deviceId'], id);
+      expect(f.pings.first['model'], 'Test X');
+      expect(f.pings.first['build'], 250);
+      // يبقى بعد إعادة التشغيل
+      expect(LicenseService(store, fetcher: f, deviceInfo: fakeDevice).deviceId(), id);
+    });
+
+    test('deviceActive=false ⇒ مقفل، والكود لا يفتحه', () async {
+      f.next = lic(true);
+      f.pingNext = const PingResult(deviceActive: false);
+      final s = await d.check();
+      expect(s.allowed, isFalse);
+      expect(s.deviceLocked, isTrue);
+      expect(s.codeAccepted, isFalse);
+      expect(await d.unlock('ABC123'), isFalse);
+    });
+
+    test('قفل الجهاز ثم انقطاع الشبكة ⇒ يبقى مقفلاً، ويُحفظ عبر إعادة التشغيل', () async {
+      f.next = lic(true);
+      f.pingNext = const PingResult(deviceActive: false);
+      await d.check();
+      f.pingNext = null;
+      f.next = null;
+      expect((await d.check()).allowed, isFalse);
+      expect(LicenseService(store, fetcher: FakeFetcher()).allowed, isFalse);
+    });
+
+    test('فتح الجهاز من اللوحة ⇒ يفتح فوراً في الفحص التالي', () async {
+      f.next = lic(true);
+      f.pingNext = const PingResult(deviceActive: false);
+      await d.check();
+      f.pingNext = const PingResult(deviceActive: true);
+      final s = await d.check();
+      expect(s.allowed, isTrue);
+      expect(s.deviceLocked, isFalse);
+    });
+
+    test('النبض يفشل (شبكة) لأول مرة ⇒ لا قفل أبداً', () async {
+      f.next = lic(true);
+      f.pingNext = null;
+      expect((await d.check()).allowed, isTrue);
+    });
+
+    test('الجهاز مفتوح لكن الترخيص العام موقوف ⇒ مقفل ويقبل الكود', () async {
+      f.next = lic(false);
+      f.pingNext = const PingResult(deviceActive: true);
+      final s = await d.check();
+      expect(s.allowed, isFalse);
+      expect(s.deviceLocked, isFalse);
+      expect(await d.unlock('ABC123'), isTrue);
+    });
+
+    test('الويب/غير أندرويد ⇒ لا نبض', () async {
+      final w = LicenseService(store, fetcher: f, deviceInfo: () async => null);
+      f.next = lic(true);
+      await w.check();
+      expect(f.pings, isEmpty);
+    });
+  });
+
+  group('مصادر الجلب', () {
+    test('المنصة هي المصدر الأساسي والعناوين صحيحة', () {
+      expect(
+        RemoteConfig.platformUri('update.json').toString(),
+        'https://api.alabbasi.uk/v1/apps/hisab-almozaw3/update.json',
+      );
+      expect(RemoteConfig.pingUri.toString(), 'https://api.alabbasi.uk/v1/apps/hisab-almozaw3/ping');
     });
   });
 

@@ -1,3 +1,5 @@
+> **2026-11-21 — 2.5.0 منشور.** النشر والتحكم عبر منصة [alabbasi-publish](https://github.com/moain2028/alabbasi-publish) (خاص): api/admin/downloads.alabbasi.uk. قفل لكل جهاز. analyze نظيف، 71 اختباراً ناجحاً، `doctor.sh --deep` سليم.
+
 # STATUS — 2.4.0 (منشور 2026-11-21)
 - ✅ هوية بنفسجي/ذهبي · APK 9.1MB/8.8MB · تحديث 2.2.0→2.4.0 متحقق · 57 اختباراً.
 - ⏳ لوحة الأجهزة (ADR 0011) تنتظر Cloudflare Token · ⏳ تثبيت فعلي على جوال.

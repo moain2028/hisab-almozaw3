@@ -97,11 +97,20 @@ class UpdateInfo {
 
 @immutable
 class InstalledInfo {
-  const InstalledInfo({required this.versionCode, required this.versionName, required this.abi, this.sdkInt = 0});
+  const InstalledInfo({
+    required this.versionCode,
+    required this.versionName,
+    required this.abi,
+    this.sdkInt = 0,
+    this.model = '',
+  });
   final int versionCode;
   final String versionName;
   final String abi; // arm64 | armv7 | x86_64 | ''
   final int sdkInt;
+
+  /// الشركة والموديل (للوحة الأجهزة فقط)
+  final String model;
 
   /// رقم البناء N من versionCode (Flutter split-per-abi: 1000×ABI + N)
   int get build => versionCode % 1000;
@@ -162,6 +171,7 @@ class UpdateService extends ChangeNotifier {
         versionName: '${m['versionName'] ?? ''}',
         abi: abiKey('${m['nativeLibDir'] ?? ''}', '${m['abi'] ?? ''}'),
         sdkInt: (m['sdkInt'] as num?)?.toInt() ?? 0,
+        model: '${m['model'] ?? ''}',
       );
     } catch (_) {
       return null;
