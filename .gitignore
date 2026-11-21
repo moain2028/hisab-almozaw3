@@ -54,3 +54,4 @@ server.log
 *.hisab
 /dist/
 fallback.log
+test/failures/

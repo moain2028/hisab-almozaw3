@@ -1,0 +1,6 @@
+# لقطات المراجعة البصرية (test/screenshots_test.dart) لا تعمل في التشغيل العادي:
+# تحتوي أوقاتاً حية فتختلف كل دقيقة. شغّلها يدوياً:
+#   flutter test test/screenshots_test.dart --run-skipped --update-goldens
+tags:
+  shots:
+    skip: "لقطات مراجعة يدوية — انظر dart_test.yaml"

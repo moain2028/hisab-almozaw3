@@ -133,6 +133,8 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
               ),
             ),
           ],
+          // مساحة حتى لا يغطي زر «مصروف جديد» آخر عنصر
+          const SliverToBoxAdapter(child: SizedBox(height: 96)),
           const SliverToBoxAdapter(child: SizedBox(height: 96)),
         ],
       ),

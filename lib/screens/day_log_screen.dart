@@ -47,13 +47,18 @@ class _DayLogScreenState extends State<DayLogScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('سجل اليوم')),
-      floatingActionButton: FloatingActionButton.small(
-        heroTag: 'addShop',
-        tooltip: 'إضافة بقالة',
-        onPressed: () => openShopForm(context),
-        child: const Icon(Icons.add_business_rounded),
+      appBar: AppBar(
+        title: const Text('سجل اليوم'),
+        // «إضافة بقالة» في الرأس بدل زر عائم كان يغطي مبلغ آخر بقالة
+        actions: [
+          IconButton(
+            tooltip: 'إضافة بقالة',
+            onPressed: () => openShopForm(context),
+            icon: const Icon(Icons.add_business_rounded),
+          ),
+        ],
       ),
+
       body: CustomScrollView(
         slivers: [
           PinnedHeader(
@@ -135,7 +140,7 @@ class _DayLogScreenState extends State<DayLogScreen> {
               ),
             ),
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(Space.md, Space.xs, Space.md, 88),
+            padding: const EdgeInsets.fromLTRB(Space.md, Space.xs, Space.md, Space.xl),
             sliver: SliverList.builder(
               itemCount: list.length,
               itemBuilder: (_, i) {

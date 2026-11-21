@@ -36,7 +36,8 @@ class HeroCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(Radii.lg),
         boxShadow: [BoxShadow(color: cs.primary.withValues(alpha: .25), blurRadius: 18, offset: const Offset(0, 8))],
       ),
-      child: DefaultTextStyle(
+      // merge وليس DefaultTextStyle(...): الأخير يستبدل النمط كاملاً فيضيع خط التطبيق
+      child: DefaultTextStyle.merge(
         style: const TextStyle(color: kOnHero, fontSize: 14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

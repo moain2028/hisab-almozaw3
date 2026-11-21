@@ -83,7 +83,25 @@ void main() {
           Object? crash;
           final small = <String>{};
           final lowContrast = <String>{};
+          final wrongFont = <String>{};
           void contrastAt(String where) {
+            // كل نص ظاهر يجب أن يكون بخط التطبيق (سقوط الخط لخط النظام خطأ 2.3.0 في عناوين الرأس)
+            for (final el in find.byType(RichText).evaluate()) {
+              final rt = el.widget as RichText;
+              void walk(InlineSpan sp, String? fam) {
+                final f = sp.style?.fontFamily ?? fam;
+                if (sp is TextSpan) {
+                  final t = (sp.text ?? '').trim();
+                  // أيقونات Material لها خطها الخاص
+                  if (t.isNotEmpty && f != 'MaterialIcons' && f != 'Plex') wrongFont.add('$where "$t" font=$f');
+                  for (final c in sp.children ?? const <InlineSpan>[]) {
+                    walk(c, f);
+                  }
+                }
+              }
+
+              walk(rt.text, null);
+            }
             final ctx = tester.element(find.byType(Scaffold).last);
             for (final b in scanContrast(Theme.of(ctx).scaffoldBackgroundColor)) {
               lowContrast.add('$where $b');
@@ -230,6 +248,7 @@ void main() {
           expect(overflows, isEmpty, reason: overflows.join('\n'));
           expect(others, isEmpty, reason: others.join('\n'));
           expect(lowContrast, isEmpty, reason: lowContrast.join('\n'));
+          expect(wrongFont, isEmpty, reason: wrongFont.take(10).join('\n'));
         });
       }
     }

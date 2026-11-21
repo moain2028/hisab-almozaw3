@@ -72,13 +72,17 @@ Color balanceColor(BuildContext c, int v) => v > 0 ? debtColor(c) : (v < 0 ? cre
 
 String balanceLabel(int v) => v > 0 ? 'عليه' : (v < 0 ? 'له' : 'مسدّد');
 
+/// خط التطبيق. **كل TextStyle داخل الثيم يجب أن يحمله صراحةً**: أنماط مثل appBarTheme.titleTextStyle
+/// لا ترث fontFamily من ThemeData، فتسقط لخط النظام (عناوين وأزرار بخط مختلف — كُشف في 2.3.0).
+const kFont = 'Plex';
+
 ThemeData buildTheme(Brightness b) {
   final cs = ColorScheme.fromSeed(seedColor: AppColors.primary, brightness: b);
   final base = ThemeData(
     useMaterial3: true,
     colorScheme: cs,
     brightness: b,
-    fontFamily: 'Plex',
+    fontFamily: kFont,
     // أهداف لمس ≥ 48dp على كل المنصات (حتى في معاينة الويب)
     materialTapTargetSize: MaterialTapTargetSize.padded,
     visualDensity: VisualDensity.standard,
@@ -89,7 +93,7 @@ ThemeData buildTheme(Brightness b) {
       centerTitle: false,
       backgroundColor: b == Brightness.light ? AppColors.bgLight : cs.surface,
       surfaceTintColor: Colors.transparent,
-      titleTextStyle: TextStyle(fontSize: 21, fontWeight: FontWeight.w700, color: cs.onSurface),
+      titleTextStyle: TextStyle(fontFamily: kFont, fontSize: 21, fontWeight: FontWeight.w700, color: cs.onSurface),
     ),
     cardTheme: CardThemeData(
       elevation: 0,
@@ -114,14 +118,14 @@ ThemeData buildTheme(Brightness b) {
       style: FilledButton.styleFrom(
         minimumSize: const Size(64, 48),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+        textStyle: const TextStyle(fontFamily: kFont, fontSize: 16, fontWeight: FontWeight.w700),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
         minimumSize: const Size(64, 48),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+        textStyle: const TextStyle(fontFamily: kFont, fontSize: 15, fontWeight: FontWeight.w700),
       ),
     ),
     dialogTheme: DialogThemeData(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22))),
@@ -135,8 +139,8 @@ ThemeData buildTheme(Brightness b) {
     // تحذير: لا تضع labelStyle بلا لون هنا — يلغي لون Material الافتراضي فيظهر النص أسود على الداكن.
     chipTheme: ChipThemeData(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.pill)),
-      labelStyle: TextStyle(fontWeight: FontWeight.w600, color: cs.onSurfaceVariant),
-      secondaryLabelStyle: TextStyle(fontWeight: FontWeight.w700, color: cs.onSecondaryContainer),
+      labelStyle: TextStyle(fontFamily: kFont, fontWeight: FontWeight.w600, color: cs.onSurfaceVariant),
+      secondaryLabelStyle: TextStyle(fontFamily: kFont, fontWeight: FontWeight.w700, color: cs.onSecondaryContainer),
       selectedColor: cs.secondaryContainer,
       checkmarkColor: cs.onSecondaryContainer,
       side: BorderSide(color: cs.outlineVariant),
@@ -156,6 +160,7 @@ ThemeData buildTheme(Brightness b) {
       indicatorColor: cs.primaryContainer,
       labelTextStyle: WidgetStateProperty.resolveWith(
         (st) => TextStyle(
+          fontFamily: kFont,
           fontSize: 12.5,
           fontWeight: FontWeight.w700,
           color: st.contains(WidgetState.selected) ? cs.onSurface : cs.onSurfaceVariant,
