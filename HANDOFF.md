@@ -3,10 +3,11 @@
 > **اقرأ هذا الملف أولاً.** آخر تحديث: نهاية جلسة 2.3.0 (عمل غير مكتمل — مرفوع كما هو).
 
 ## 0) الحالة بسطر واحد
-**2.3.1 منشور** (Release `v2.3.1` + `update.json` حي، SHA-256 متحقق، نفس مفتاح التوقيع). analyze = 0 · test = 57 ناجحة. تدقيق شامل في `docs/design/audit-2.3.1.md`.
-صفحة التنزيلات **منشورة على GitHub Pages**: https://moain2028.github.io/hisab-almozaw3-dist/ · الدومين downloads.alabbasi.uk ما زال ينتظر Cloudflare Token.
-التحديث من 2.2.0 → 2.3.1 مُتحقَّق بكود 2.2.0 نفسه مقابل update.json الحي (متاح + تنزيل 200 + SHA مطابق). لم يُجرَّب التثبيت على جوال.
-لقطات المراجعة: `flutter test test/screenshots_test.dart --run-skipped --update-goldens` → `test/goldens/`.
+**2.4.0 منشور**: هوية بنفسجي/ذهبي (مثل «كتاب البيت»)، APK مضغوط arm64 **9.1MB** / armv7 **8.8MB** (يُفك عند التثبيت، ADR 0012). analyze = 0 · test = 57.
+مسار التحديث مُتحقَّق بكود 2.2.0 نفسه مقابل update.json الحي (متاح + HTTP 200 + SHA مطابق).
+صفحة التنزيلات (بالهوية الجديدة): https://moain2028.github.io/hisab-almozaw3-dist/ (فرع gh-pages).
+**البناء الآن خطوتان:** `flutter build apk --release --split-per-abi --target-platform android-arm,android-arm64 --split-debug-info=build/symbols` ثم `python3 tool/zopfli_apk.py IN OUT --ks android/release-key.jks --props android/key.properties` لكل ملف.
+التالي: لوحة الأجهزة (ADR 0011) — تنتظر Cloudflare API Token + Account ID.
 
 ## 1) المشروع
 - تطبيق Flutter **أندرويد فقط** (حُذفت ios/linux/macos/windows في 2.3.0؛ مجلد `web/` باقٍ للمعاينة فقط).
