@@ -80,7 +80,6 @@ void main() {
     testWidgets('لقطات $mode', (tester) async {
       // الظلال الحقيقية (الافتراضي في الاختبارات = حدّ أسود صلب بدل الظل)
       debugDisableShadows = false;
-      addTearDown(() => debugDisableShadows = true);
       await tester.runAsync(() => store.setMeta('themeMode', dark ? 2 : 1));
       await tester.runAsync(() => store.setMeta('textScale', 1.0));
       tester.view.physicalSize = const Size(360, 800) * 3;
@@ -156,6 +155,7 @@ void main() {
       await push(const ExpensesScreen(), 'expenses');
       await push(const SettingsScreen(), 'settings');
       await push(const DeveloperScreen(), 'developer');
+      debugDisableShadows = true; // يجب إرجاعه قبل نهاية الاختبار (فحص ثوابت flutter_test)
     });
   }
 }

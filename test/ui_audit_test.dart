@@ -84,6 +84,7 @@ void main() {
           final small = <String>{};
           final lowContrast = <String>{};
           final wrongFont = <String>{};
+          double homeScroll = 0;
           void contrastAt(String where) {
             // كل نص ظاهر يجب أن يكون بخط التطبيق (سقوط الخط لخط النظام خطأ 2.3.0 في عناوين الرأس)
             for (final el in find.byType(RichText).evaluate()) {
@@ -122,6 +123,12 @@ void main() {
             );
             await tester.pump(const Duration(milliseconds: 500));
             await tester.pump(const Duration(milliseconds: 500));
+
+            // ---- الرئيسية «تطبيق لا صفحة ويب»: لا تمرير على الجوالات الشائعة (≥ 360×740) بخط عادي
+            if (scale == 1.0 && e.value.height >= 740) {
+              final pos = tester.state<ScrollableState>(find.byType(Scrollable).first).position;
+              homeScroll = pos.maxScrollExtent;
+            }
 
             final tabs = tester.widgetList<NavigationDestination>(find.byType(NavigationDestination)).length;
             for (var t = 0; t < (tabs == 0 ? 1 : tabs); t++) {
@@ -248,6 +255,7 @@ void main() {
           expect(overflows, isEmpty, reason: overflows.join('\n'));
           expect(others, isEmpty, reason: others.join('\n'));
           expect(lowContrast, isEmpty, reason: lowContrast.join('\n'));
+          expect(homeScroll, lessThanOrEqualTo(1), reason: 'الرئيسية تتمرّر ${homeScroll.toStringAsFixed(0)}px');
           expect(wrongFont, isEmpty, reason: wrongFont.take(10).join('\n'));
         });
       }

@@ -113,6 +113,8 @@ class HeroCard extends StatelessWidget {
 
 // ------------------------------------------------------------------ البضاعة في السيارة
 
+/// صف مختصر في الرئيسية: «في السيارة: زبادي 2 · لبن 1…» → يفتح صفحة الجدول الكامل.
+/// (كان ExpansionTile يتمدد داخل الرئيسية فيجعلها تتمرّر كصفحة ويب.)
 class StockCard extends StatelessWidget {
   const StockCard({super.key, required this.rows});
   final List<StockRow> rows;
@@ -120,79 +122,92 @@ class StockCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     if (rows.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Card(
-        child: ExpansionTile(
-          shape: const Border(),
-          leading: Icon(Icons.inventory_outlined, color: cs.tertiary),
-          title: const Text('البضاعة الباقية في السيارة', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-          subtitle: Text(
-            rows.map((r) => '${r.name} ${qtyText(r.onHand)}').join(' · '),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+    final short = rows.any((r) => r.onHand < 0);
+    return Card(
+      margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
+      child: ListTile(
+        onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => StockScreen(rows: rows))),
+        leading: Icon(
+          short ? Icons.warning_amber_rounded : Icons.inventory_outlined,
+          color: short ? debtColor(context) : cs.tertiary,
+        ),
+        title: const Text('البضاعة في السيارة', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+        subtitle: Text(
+          rows.map((r) => '${r.name} ${qtyText(r.onHand)}').join(' · '),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: const Icon(Icons.chevron_left_rounded),
+      ),
+    );
+  }
+}
+
+class StockScreen extends StatelessWidget {
+  const StockScreen({super.key, required this.rows});
+  final List<StockRow> rows;
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    Widget cell(String t, {bool head = false, bool bold = false, Color? color}) => Padding(
+      padding: const EdgeInsets.symmetric(vertical: Space.md, horizontal: Space.xs),
+      child: Text(
+        t,
+        style: TextStyle(
+          fontWeight: head || bold ? FontWeight.w700 : FontWeight.w400,
+          fontSize: head ? 13 : 15,
+          color: head ? cs.onSurfaceVariant : color,
+          fontFeatures: tabular,
+        ),
+      ),
+    );
+    return Scaffold(
+      appBar: AppBar(title: const Text('البضاعة في السيارة')),
+      body: ListView(
+        padding: const EdgeInsets.all(Space.md),
+        children: [
+          Card(
+            margin: EdgeInsets.zero,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: Space.lg, vertical: Space.sm),
               child: Table(
                 columnWidths: const {0: FlexColumnWidth(1.6)},
+                border: TableBorder(horizontalInside: BorderSide(color: cs.outlineVariant.withValues(alpha: .6))),
                 children: [
                   TableRow(
-                    children: ['الصنف', 'استلمت', 'وزّعت', 'الباقي']
-                        .map(
-                          (t) => Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 6),
-                            child: Text(
-                              t,
-                              style: TextStyle(fontWeight: FontWeight.w700, color: cs.onSurfaceVariant, fontSize: 13),
-                            ),
-                          ),
-                        )
-                        .toList(),
+                    children: [
+                      for (final t in ['الصنف', 'استلمت', 'وزّعت', 'الباقي']) cell(t, head: true),
+                    ],
                   ),
                   for (final r in rows)
                     TableRow(
                       children: [
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 5),
-                          child: Text(r.name, style: const TextStyle(fontWeight: FontWeight.w700)),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 5),
-                          child: Text(qtyText(r.picked - r.traderReturns)),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 5),
-                          child: Text(qtyText(r.delivered - r.shopReturns)),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 5),
-                          child: Text(
-                            qtyText(r.onHand),
-                            style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              color: r.onHand < 0
-                                  ? debtColor(context)
-                                  : (r.onHand > 0 ? warnColor(context) : paidColor(context)),
-                            ),
-                          ),
+                        cell(r.name, bold: true),
+                        cell(qtyText(r.picked - r.traderReturns)),
+                        cell(qtyText(r.delivered - r.shopReturns)),
+                        cell(
+                          qtyText(r.onHand),
+                          bold: true,
+                          color: r.onHand < 0
+                              ? debtColor(context)
+                              : (r.onHand > 0 ? warnColor(context) : paidColor(context)),
                         ),
                       ],
                     ),
                 ],
               ),
             ),
-            if (rows.any((r) => r.onHand < 0))
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                child: Text(
-                  'تنبيه: وزّعت أكثر مما استلمت في بعض الأصناف. راجع الاستلام.',
-                  style: TextStyle(color: debtColor(context), fontSize: 12.5, fontWeight: FontWeight.w600),
-                ),
+          ),
+          if (rows.any((r) => r.onHand < 0))
+            Padding(
+              padding: const EdgeInsets.all(Space.md),
+              child: Text(
+                'تنبيه: وزّعت أكثر مما استلمت في بعض الأصناف. راجع الاستلام.',
+                style: TextStyle(color: debtColor(context), fontWeight: FontWeight.w600),
               ),
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }

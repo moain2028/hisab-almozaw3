@@ -4,7 +4,7 @@
 ///   1. شريط اليوم
 ///   2. البطاقة البطلة: الباقي عند البقالات + العطاء/المحصّل/في جيبك
 ///   3. إجراءات سريعة (شبكة 3×2): عطاء · تحصيل · استلام · مصروف · صنف جديد · بقالة جديدة
-///   4. تقدّم اليوم: عطاء X/Y · تحصيل X/Y → يفتح «سجل اليوم»
+///   4. صف «سجل اليوم» (تقدّم العطاء/التحصيل) → يفتح القائمة الكاملة
 ///   5. البضاعة في السيارة (إن وُجد استلام)
 /// القوائم الطويلة لها صفحاتها: سجل اليوم، البقالات، التاجر، التقارير.
 library;
@@ -68,6 +68,7 @@ class _TodayScreenState extends State<TodayScreen> {
                   cs.primary,
                   () => openDayLog(context, DayMode.deliver),
                   highlight: !night,
+                  badge: '${s.deliveredShops.length}/${shops.length}',
                 ),
                 _Quick(
                   Icons.payments_rounded,
@@ -75,6 +76,7 @@ class _TodayScreenState extends State<TodayScreen> {
                   paidColor(context),
                   () => openDayLog(context, DayMode.collect),
                   highlight: night,
+                  badge: '${s.paidShops.length}/${shops.length}',
                 ),
                 _Quick(Icons.local_shipping_rounded, 'استلام', cs.tertiary, () => _pickup(context, store)),
                 _Quick(Icons.receipt_long_rounded, 'مصروف', warnColor(context), () => _addExpense(context, store)),
@@ -84,45 +86,15 @@ class _TodayScreenState extends State<TodayScreen> {
             ),
           ),
 
-          // ---------------- تقدّم اليوم → سجل اليوم
-          const SectionTitle('تقدّم اليوم'),
+          // ---------------- سجل اليوم (صف واحد: تقدّم العطاء والتحصيل) — لا قوائم في الرئيسية
+          const SizedBox(height: Space.md),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: Space.md),
-            child: Card(
-              margin: EdgeInsets.zero,
-              clipBehavior: Clip.antiAlias,
-              child: Column(
-                children: [
-                  _ProgressRow(
-                    icon: Icons.wb_sunny_outlined,
-                    label: 'العطاء',
-                    done: s.deliveredShops.length,
-                    total: shops.length,
-                    color: cs.primary,
-                    onTap: () => openDayLog(context, DayMode.deliver),
-                  ),
-                  const Divider(height: 1, indent: Space.lg, endIndent: Space.lg),
-                  _ProgressRow(
-                    icon: Icons.nightlight_outlined,
-                    label: 'التحصيل',
-                    done: s.paidShops.length,
-                    total: shops.length,
-                    color: paidColor(context),
-                    onTap: () => openDayLog(context, DayMode.collect),
-                  ),
-                  const Divider(height: 1),
-                  ListTile(
-                    onTap: () => openDayLog(context, night ? DayMode.collect : DayMode.deliver),
-                    leading: Icon(Icons.list_alt_rounded, color: cs.primary),
-                    title: Text(
-                      'فتح سجل اليوم',
-                      style: TextStyle(fontWeight: FontWeight.w700, color: cs.primary),
-                    ),
-                    subtitle: Text('${shops.length} بقالة · بحث وفلترة'),
-                    trailing: Icon(Icons.chevron_left_rounded, color: cs.primary),
-                  ),
-                ],
-              ),
+            child: _DayLogRow(
+              delivered: s.deliveredShops.length,
+              paid: s.paidShops.length,
+              total: shops.length,
+              onTap: () => openDayLog(context, night ? DayMode.collect : DayMode.deliver),
             ),
           ),
           if (shops.isEmpty)
@@ -137,7 +109,10 @@ class _TodayScreenState extends State<TodayScreen> {
             ),
           if (store.products.isNotEmpty && s.picked > 0) ...[
             const SizedBox(height: Space.sm),
-            StockCard(rows: store.stockOf()),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: Space.md),
+              child: StockCard(rows: store.stockOf()),
+            ),
           ],
         ],
       ),
@@ -169,12 +144,15 @@ class _TodayScreenState extends State<TodayScreen> {
 }
 
 class _Quick {
-  const _Quick(this.icon, this.label, this.color, this.onTap, {this.highlight = false});
+  const _Quick(this.icon, this.label, this.color, this.onTap, {this.highlight = false, this.badge});
   final IconData icon;
   final String label;
   final Color color;
   final VoidCallback onTap;
   final bool highlight;
+
+  /// عدّاد صغير في الزاوية (مثلاً 4/6 بقالات أُعطيت)
+  final String? badge;
 }
 
 /// شبكة 3 أعمدة بارتفاع يتبع الخط — أهداف لمس كبيرة ومتساوية
@@ -186,7 +164,7 @@ class _QuickGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     // الارتفاع يتبع حجم خط النظام (لا نسبة عرض/ارتفاع ثابتة → لا overflow عند ×1.25)
-    final extent = 72 + MediaQuery.textScalerOf(context).scale(20);
+    final extent = 64 + MediaQuery.textScalerOf(context).scale(20);
     return GridView(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -207,31 +185,51 @@ class _QuickGrid extends StatelessWidget {
                 haptic(context);
                 q.onTap();
               },
-              child: Padding(
-                padding: const EdgeInsets.all(Space.sm),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // مربع ممتلئ بلون الإجراء + أيقونة بيضاء/داكنة حسب السطوع (تباين ≥ 3:1 للأيقونات، WCAG 1.4.11)
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(color: q.color, borderRadius: BorderRadius.circular(Radii.md)),
-                      child: Icon(
-                        q.icon,
-                        size: 22,
-                        color: q.color.computeLuminance() > .4 ? const Color(0xFF10201E) : Colors.white,
+              child: Stack(
+                children: [
+                  if (q.badge != null)
+                    PositionedDirectional(
+                      top: Space.sm,
+                      end: Space.sm,
+                      child: Text(
+                        q.badge!,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: cs.onSurfaceVariant,
+                          fontFeatures: tabular,
+                        ),
                       ),
                     ),
-                    const SizedBox(height: Space.xs + 2),
-                    Text(
-                      q.label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: cs.onSurface),
+                  Padding(
+                    padding: const EdgeInsets.all(Space.sm),
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // مربع ممتلئ بلون الإجراء + أيقونة بيضاء/داكنة حسب السطوع (تباين ≥ 3:1 للأيقونات، WCAG 1.4.11)
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(color: q.color, borderRadius: BorderRadius.circular(Radii.md)),
+                            child: Icon(
+                              q.icon,
+                              size: 22,
+                              color: q.color.computeLuminance() > .4 ? const Color(0xFF10201E) : Colors.white,
+                            ),
+                          ),
+                          const SizedBox(height: Space.xs),
+                          Text(
+                            q.label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: cs.onSurface),
+                          ),
+                        ],
+                      ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -240,55 +238,73 @@ class _QuickGrid extends StatelessWidget {
   }
 }
 
-class _ProgressRow extends StatelessWidget {
-  const _ProgressRow({
-    required this.icon,
-    required this.label,
-    required this.done,
-    required this.total,
-    required this.color,
-    required this.onTap,
-  });
-  final IconData icon;
-  final String label;
-  final int done;
+/// صف «سجل اليوم»: يفتح القائمة الكاملة، ويعرض تقدّم العطاء والتحصيل بشريطين رفيعين.
+class _DayLogRow extends StatelessWidget {
+  const _DayLogRow({required this.delivered, required this.paid, required this.total, required this.onTap});
+  final int delivered;
+  final int paid;
   final int total;
-  final Color color;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final p = total == 0 ? 0.0 : done / total;
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(Space.lg, Space.md, Space.lg, Space.md),
-        child: Row(
-          children: [
-            Icon(icon, color: color, size: 22),
-            const SizedBox(width: Space.md),
-            SizedBox(
-              width: 64,
-              child: Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
+    Widget bar(String label, int done, Color c) => Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '$label $done/$total',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 12.5, color: cs.onSurfaceVariant, fontFeatures: tabular),
+          ),
+          const SizedBox(height: Space.xs),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(Radii.pill),
+            child: LinearProgressIndicator(
+              value: total == 0 ? 0 : done / total,
+              minHeight: 6,
+              color: c,
+              backgroundColor: c.withValues(alpha: .15),
             ),
-            Expanded(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(Radii.pill),
-                child: LinearProgressIndicator(
-                  value: p,
-                  minHeight: 8,
-                  color: color,
-                  backgroundColor: color.withValues(alpha: .15),
+          ),
+        ],
+      ),
+    );
+    return Card(
+      margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(Space.lg, Space.md, Space.sm, Space.md),
+          child: Row(
+            children: [
+              Icon(Icons.list_alt_rounded, color: cs.primary),
+              const SizedBox(width: Space.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'فتح سجل اليوم',
+                      style: TextStyle(fontWeight: FontWeight.w700, color: cs.primary),
+                    ),
+                    const SizedBox(height: Space.xs),
+                    Row(
+                      children: [
+                        bar('العطاء', delivered, cs.primary),
+                        const SizedBox(width: Space.md),
+                        bar('التحصيل', paid, paidColor(context)),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-            ),
-            const SizedBox(width: Space.md),
-            Text(
-              '$done/$total',
-              style: TextStyle(fontWeight: FontWeight.w700, color: cs.onSurface, fontFeatures: tabular),
-            ),
-          ],
+              Icon(Icons.chevron_left_rounded, color: cs.primary),
+            ],
+          ),
         ),
       ),
     );
