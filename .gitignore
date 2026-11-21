@@ -53,3 +53,4 @@ app.*.map.json
 server.log
 *.hisab
 /dist/
+fallback.log

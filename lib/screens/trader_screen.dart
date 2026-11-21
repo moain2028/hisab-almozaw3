@@ -73,15 +73,14 @@ class TraderScreen extends StatelessWidget {
       body: CustomScrollView(
         slivers: [
           PinnedHeader(
-            height: isTab ? 244 : 180,
             child: Column(
               children: [
                 if (isTab) const DayBar(),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: Space.md),
                   child: Container(
-                    height: 72,
-                    padding: const EdgeInsets.symmetric(horizontal: Space.lg),
+                    constraints: const BoxConstraints(minHeight: 72),
+                    padding: const EdgeInsets.symmetric(horizontal: Space.lg, vertical: Space.sm),
                     decoration: BoxDecoration(
                       color: (bal > 0 ? debtColor(context) : paidColor(context)).withValues(alpha: .08),
                       borderRadius: BorderRadius.circular(Radii.lg),
@@ -108,12 +107,15 @@ class TraderScreen extends StatelessWidget {
                             ],
                           ),
                         ),
-                        FittedBox(
-                          child: MoneyText(
-                            bal.abs(),
-                            size: 24,
-                            color: bal > 0 ? debtColor(context) : paidColor(context),
-                            showCurrency: true,
+                        Flexible(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: MoneyText(
+                              bal.abs(),
+                              size: 24,
+                              color: bal > 0 ? debtColor(context) : paidColor(context),
+                              showCurrency: true,
+                            ),
                           ),
                         ),
                       ],
@@ -173,7 +175,10 @@ class TraderScreen extends StatelessWidget {
             ),
           ),
           const SliverToBoxAdapter(
-            child: Padding(padding: EdgeInsets.symmetric(horizontal: Space.md), child: SectionTitle('كشف الحساب')),
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: Space.md),
+              child: SectionTitle('كشف الحساب'),
+            ),
           ),
           if (rows.isEmpty)
             const SliverToBoxAdapter(
@@ -226,8 +231,14 @@ class TraderScreen extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Text(relativeDay(day), style: const TextStyle(fontWeight: FontWeight.w700)),
-                const Spacer(),
+                Expanded(
+                  child: Text(
+                    relativeDay(day),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
                 Text('عليك ', style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12.5)),
                 Text(
                   money(endBal),
@@ -249,7 +260,7 @@ class TraderScreen extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final (IconData icon, Color color) = switch (x.type) {
       TraderTxType.pickup => (Icons.south_west, cs.tertiary),
-      TraderTxType.returned => (Icons.undo, AppColors.warn),
+      TraderTxType.returned => (Icons.undo, warnColor(context)),
       TraderTxType.payment => (Icons.north_east, paidColor(context)),
     };
     return ListTile(

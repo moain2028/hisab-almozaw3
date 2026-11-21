@@ -74,7 +74,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                       children: [
                         Text('الإجمالي', style: TextStyle(color: cs.onSurfaceVariant)),
                         const SizedBox(height: Space.xs),
-                        MoneyText(total, size: 26, color: AppColors.warn),
+                        MoneyText(total, size: 26, color: warnColor(context)),
                         if (cats.isNotEmpty) ...[
                           const SizedBox(height: Space.md),
                           Wrap(
@@ -106,8 +106,8 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                     key: ValueKey(e.id),
                     child: ListTile(
                       leading: CircleAvatar(
-                        backgroundColor: AppColors.warn.withValues(alpha: .12),
-                        child: const Icon(Icons.receipt_long_rounded, color: AppColors.warn),
+                        backgroundColor: warnColor(context).withValues(alpha: .12),
+                        child: Icon(Icons.receipt_long_rounded, color: warnColor(context)),
                       ),
                       title: Text(e.category, style: const TextStyle(fontWeight: FontWeight.w700)),
                       subtitle: e.note.isEmpty ? null : Text(e.note, maxLines: 2, overflow: TextOverflow.ellipsis),

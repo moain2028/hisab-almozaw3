@@ -31,19 +31,16 @@ class DeveloperScreen extends StatelessWidget {
               children: [
                 CircleAvatar(
                   radius: 34,
-                  backgroundColor: cs.onPrimary.withValues(alpha: .15),
-                  child: Icon(Icons.code_rounded, size: 34, color: cs.onPrimary),
+                  backgroundColor: kOnHero.withValues(alpha: .15),
+                  child: const Icon(Icons.code_rounded, size: 34, color: kOnHero),
                 ),
                 const SizedBox(height: Space.md),
-                Text(
+                const Text(
                   Developer.name,
-                  style: TextStyle(color: cs.onPrimary, fontWeight: FontWeight.w700, fontSize: 20),
+                  style: TextStyle(color: kOnHero, fontWeight: FontWeight.w700, fontSize: 20),
                 ),
                 const SizedBox(height: Space.xs),
-                Text(
-                  'تطوير وتصميم «حساب الموزع»',
-                  style: TextStyle(color: cs.onPrimary.withValues(alpha: .85)),
-                ),
+                Text('تطوير وتصميم «حساب الموزع»', style: TextStyle(color: kOnHero.withValues(alpha: .85))),
               ],
             ),
           ),
@@ -55,7 +52,7 @@ class DeveloperScreen extends StatelessWidget {
               children: [
                 _Row(
                   icon: Icons.chat_rounded,
-                  color: const Color(0xFF1FA855),
+                  color: const Color(0xFF128C4A), // أخضر واتساب الداكن (أبيض عليه 4.6:1)
                   title: 'واتساب',
                   sub: Developer.phoneDisplay,
                   onTap: () => openUri(context, Developer.whatsapp('السلام عليكم، بخصوص تطبيق حساب الموزع')),
@@ -113,8 +110,8 @@ class _Row extends StatelessWidget {
     leading: Container(
       width: 40,
       height: 40,
-      decoration: BoxDecoration(color: color.withValues(alpha: .14), borderRadius: BorderRadius.circular(Radii.md)),
-      child: Icon(icon, color: color),
+      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(Radii.md)),
+      child: Icon(icon, color: color.computeLuminance() > .4 ? const Color(0xFF10201E) : Colors.white),
     ),
     title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
     subtitle: Text(sub, textDirection: TextDirection.ltr, textAlign: TextAlign.end),

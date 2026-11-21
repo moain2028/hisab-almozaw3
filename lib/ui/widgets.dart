@@ -62,13 +62,17 @@ class DayBar extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: store.isToday ? cs.primaryContainer : AppColors.warn.withValues(alpha: 0.15),
+                  color: store.isToday ? cs.primaryContainer : warnColor(context).withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.calendar_month, size: 18, color: store.isToday ? cs.onPrimaryContainer : AppColors.warn),
+                    Icon(
+                      Icons.calendar_month,
+                      size: 18,
+                      color: store.isToday ? cs.onPrimaryContainer : warnColor(context),
+                    ),
                     const SizedBox(width: 8),
                     // Flexible + ellipsis: التاريخ الطويل أو الخط الكبير لا يتجاوز العرض أبداً
                     Flexible(
@@ -79,7 +83,7 @@ class DayBar extends StatelessWidget {
                         style: TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 15,
-                          color: store.isToday ? cs.onPrimaryContainer : AppColors.warn,
+                          color: store.isToday ? cs.onPrimaryContainer : warnColor(context),
                         ),
                       ),
                     ),
@@ -358,7 +362,7 @@ class ShopAvatar extends StatelessWidget {
                 border: Border.all(color: cs.surface, width: 2),
               ),
               padding: const EdgeInsets.all(1.5),
-              child: const Icon(Icons.check, size: 12, color: Colors.white),
+              child: Icon(Icons.check, size: 12, color: isDark(context) ? const Color(0xFF0B2E12) : Colors.white),
             ),
           ),
       ],

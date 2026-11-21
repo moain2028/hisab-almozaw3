@@ -58,24 +58,17 @@ class AppDrawer extends StatelessWidget {
         Container(
           margin: const EdgeInsets.fromLTRB(12, 8, 12, 8),
           padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [cs.primary, Color.lerp(cs.primary, Colors.black, .3)!],
-              begin: AlignmentDirectional.topStart,
-              end: AlignmentDirectional.bottomEnd,
-            ),
-            borderRadius: BorderRadius.circular(Radii.lg),
-          ),
+          decoration: BoxDecoration(gradient: heroGradient(cs), borderRadius: BorderRadius.circular(Radii.lg)),
           child: Row(
             children: [
               Container(
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: cs.onPrimary.withValues(alpha: .15),
+                  color: kOnHero.withValues(alpha: .15),
                   borderRadius: BorderRadius.circular(Radii.md),
                 ),
-                child: Icon(Icons.local_shipping_rounded, color: cs.onPrimary, size: 26),
+                child: const Icon(Icons.local_shipping_rounded, color: kOnHero, size: 26),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -86,12 +79,12 @@ class AppDrawer extends StatelessWidget {
                       store.distributorName.isEmpty ? 'حساب الموزع' : store.distributorName,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: cs.onPrimary, fontWeight: FontWeight.w700, fontSize: 17),
+                      style: const TextStyle(color: kOnHero, fontWeight: FontWeight.w700, fontSize: 17),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       '${store.shops.length} بقالة · ${store.products.length} صنف',
-                      style: TextStyle(color: cs.onPrimary.withValues(alpha: .8), fontSize: 13),
+                      style: TextStyle(color: kOnHero.withValues(alpha: .8), fontSize: 13),
                     ),
                   ],
                 ),
@@ -220,7 +213,7 @@ class _Item extends StatelessWidget {
                             sub!,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontSize: 12, color: warn ? AppColors.warn : cs.onSurfaceVariant),
+                            style: TextStyle(fontSize: 12, color: warn ? warnColor(context) : cs.onSurfaceVariant),
                           ),
                       ],
                     ),

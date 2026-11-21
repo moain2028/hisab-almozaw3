@@ -171,7 +171,7 @@ class _ActionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final fg = primary ? cs.onPrimary : cs.primary;
+    final fg = primary ? kOnHero : cs.primary;
     return Material(
       borderRadius: BorderRadius.circular(Radii.lg),
       clipBehavior: Clip.antiAlias,

@@ -77,7 +77,7 @@ class _TodayScreenState extends State<TodayScreen> {
                   highlight: night,
                 ),
                 _Quick(Icons.local_shipping_rounded, 'استلام', cs.tertiary, () => _pickup(context, store)),
-                _Quick(Icons.receipt_long_rounded, 'مصروف', AppColors.warn, () => _addExpense(context, store)),
+                _Quick(Icons.receipt_long_rounded, 'مصروف', warnColor(context), () => _addExpense(context, store)),
                 _Quick(Icons.add_box_rounded, 'صنف جديد', cs.secondary, () => openProductForm(context)),
                 _Quick(Icons.add_business_rounded, 'بقالة جديدة', cs.secondary, () => openShopForm(context)),
               ],
@@ -177,7 +177,7 @@ class _Quick {
   final bool highlight;
 }
 
-/// شبكة 3 أعمدة بارتفاع ثابت 84dp — أهداف لمس كبيرة ومتساوية
+/// شبكة 3 أعمدة بارتفاع يتبع الخط — أهداف لمس كبيرة ومتساوية
 class _QuickGrid extends StatelessWidget {
   const _QuickGrid({required this.items});
   final List<_Quick> items;
@@ -185,13 +185,17 @@ class _QuickGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return GridView.count(
-      crossAxisCount: 3,
+    // الارتفاع يتبع حجم خط النظام (لا نسبة عرض/ارتفاع ثابتة → لا overflow عند ×1.25)
+    final extent = 72 + MediaQuery.textScalerOf(context).scale(20);
+    return GridView(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: Space.sm,
-      crossAxisSpacing: Space.sm,
-      childAspectRatio: 1.25,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        mainAxisSpacing: Space.sm,
+        crossAxisSpacing: Space.sm,
+        mainAxisExtent: extent,
+      ),
       children: [
         for (final q in items)
           Material(
@@ -208,14 +212,16 @@ class _QuickGrid extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
+                    // مربع ممتلئ بلون الإجراء + أيقونة بيضاء/داكنة حسب السطوع (تباين ≥ 3:1 للأيقونات، WCAG 1.4.11)
                     Container(
                       width: 40,
                       height: 40,
-                      decoration: BoxDecoration(
-                        color: q.color.withValues(alpha: .15),
-                        borderRadius: BorderRadius.circular(Radii.md),
+                      decoration: BoxDecoration(color: q.color, borderRadius: BorderRadius.circular(Radii.md)),
+                      child: Icon(
+                        q.icon,
+                        size: 22,
+                        color: q.color.computeLuminance() > .4 ? const Color(0xFF10201E) : Colors.white,
                       ),
-                      child: Icon(q.icon, color: q.color, size: 22),
                     ),
                     const SizedBox(height: Space.xs + 2),
                     Text(
@@ -262,7 +268,10 @@ class _ProgressRow extends StatelessWidget {
           children: [
             Icon(icon, color: color, size: 22),
             const SizedBox(width: Space.md),
-            SizedBox(width: 64, child: Text(label, style: const TextStyle(fontWeight: FontWeight.w700))),
+            SizedBox(
+              width: 64,
+              child: Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
+            ),
             Expanded(
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(Radii.pill),

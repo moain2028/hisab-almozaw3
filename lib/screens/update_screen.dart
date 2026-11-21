@@ -90,7 +90,7 @@ class _UpdateScreenState extends State<UpdateScreen> with WidgetsBindingObserver
       null => (Icons.sync, cs.primary, 'جارٍ الفحص…'),
       UpdateStatus.available => (Icons.new_releases_rounded, cs.primary, 'تحديث جديد متاح'),
       UpdateStatus.upToDate => (Icons.verified_rounded, paidColor(context), 'لديك آخر إصدار'),
-      UpdateStatus.offline => (Icons.wifi_off_rounded, AppColors.warn, 'لا يوجد اتصال'),
+      UpdateStatus.offline => (Icons.wifi_off_rounded, warnColor(context), 'لا يوجد اتصال'),
       _ => (Icons.error_outline, debtColor(context), 'تعذّر الفحص'),
     };
 

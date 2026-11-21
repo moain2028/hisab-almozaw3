@@ -44,21 +44,27 @@ class AppColors {
   static const paid = Color(0xFF2E7D32);
   static const paidDark = Color(0xFFA5D6A7);
   static const warn = Color(0xFFC25400); // تباين 4.6:1 على الأبيض (WCAG AA)
+  static const warnDark = Color(0xFFFFB74D); // للوضع الداكن (warn الفاتح 2.8:1 على الداكن)
   static const deep = Color(0xFF0B3D3A); // تدرّج الترويسات الفاخرة
   static const gold = Color(0xFFC9A227); // لمسة ذهبية للتمييز (زخرفي فقط، لا نص عليه)
   static const bgLight = Color(0xFFF3F6F5);
 }
 
-/// تدرّج البطاقات البطلة والترويسات
+/// تدرّج البطاقات البطلة والترويسات — **ثابت في الوضعين** (أخضر داكن) والنص عليه [kOnHero] دائماً.
+/// سابقاً كان من cs.primary: في الداكن primary فاتح و onPrimary داكن → نص 1.7:1 (كشفه ui_audit_test 2.3.0).
 LinearGradient heroGradient(ColorScheme cs) => LinearGradient(
-  colors: [cs.primary, Color.lerp(cs.primary, AppColors.deep, .75)!],
+  colors: [AppColors.primary, Color.lerp(AppColors.primary, AppColors.deep, .75)!],
   begin: AlignmentDirectional.topStart,
   end: AlignmentDirectional.bottomEnd,
 );
 
+/// لون النص والأيقونات فوق [heroGradient] (تباين ≥ 5.4:1 مع أفتح نقطة في التدرّج)
+const kOnHero = Colors.white;
+
 bool isDark(BuildContext c) => Theme.of(c).brightness == Brightness.dark;
 Color debtColor(BuildContext c) => isDark(c) ? AppColors.debtDark : AppColors.debt;
 Color creditColor(BuildContext c) => isDark(c) ? AppColors.creditDark : AppColors.credit;
+Color warnColor(BuildContext c) => isDark(c) ? AppColors.warnDark : AppColors.warn;
 Color paidColor(BuildContext c) => isDark(c) ? AppColors.paidDark : AppColors.paid;
 
 /// لون الرصيد: أحمر لو عليه، أزرق لو له، أخضر لو مسدد

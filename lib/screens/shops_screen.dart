@@ -91,7 +91,6 @@ class _ShopsScreenState extends State<ShopsScreen> {
               slivers: [
                 // الرأس المثبّت: المجموع + البحث + الترتيب — لا يختفي عند النزول
                 PinnedHeader(
-                  height: 166,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: Space.md),
                     child: Column(
@@ -215,7 +214,7 @@ class _ShopsScreenState extends State<ShopsScreen> {
             lastPay == null ? 'لم يدفع بعد' : 'آخر دفعة ${relativeDay(lastPay)}',
           ].join(' · '),
           style: TextStyle(
-            color: late ? AppColors.warn : cs.onSurfaceVariant,
+            color: late ? warnColor(context) : cs.onSurfaceVariant,
             fontWeight: late ? FontWeight.w700 : null,
           ),
         ),

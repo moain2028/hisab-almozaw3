@@ -37,19 +37,19 @@ class HeroCard extends StatelessWidget {
         boxShadow: [BoxShadow(color: cs.primary.withValues(alpha: .25), blurRadius: 18, offset: const Offset(0, 8))],
       ),
       child: DefaultTextStyle(
-        style: TextStyle(color: cs.onPrimary, fontSize: 14),
+        style: const TextStyle(color: kOnHero, fontSize: 14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               'الباقي عند البقالات',
-              style: TextStyle(color: cs.onPrimary.withValues(alpha: 0.85), fontWeight: FontWeight.w600),
+              style: TextStyle(color: kOnHero.withValues(alpha: 0.85), fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 2),
             FittedBox(
               fit: BoxFit.scaleDown,
               alignment: AlignmentDirectional.centerStart,
-              child: MoneyText(s.remainingEndOfDay, size: 36, color: cs.onPrimary, showCurrency: true),
+              child: MoneyText(s.remainingEndOfDay, size: 36, color: kOnHero, showCurrency: true),
             ),
             const SizedBox(height: 12),
             ClipRRect(
@@ -57,8 +57,8 @@ class HeroCard extends StatelessWidget {
               child: LinearProgressIndicator(
                 value: progress.toDouble(),
                 minHeight: 7,
-                backgroundColor: cs.onPrimary.withValues(alpha: 0.2),
-                valueColor: AlwaysStoppedAnimation(cs.onPrimary),
+                backgroundColor: kOnHero.withValues(alpha: 0.2),
+                valueColor: const AlwaysStoppedAnimation(kOnHero),
               ),
             ),
             const SizedBox(height: 12),
@@ -81,7 +81,7 @@ class HeroCard extends StatelessWidget {
   }
 
   Widget _mini(BuildContext c, String label, int v, IconData icon) {
-    final on = Theme.of(c).colorScheme.onPrimary;
+    const on = kOnHero;
     return Expanded(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -173,7 +173,7 @@ class StockCard extends StatelessWidget {
                               fontWeight: FontWeight.w700,
                               color: r.onHand < 0
                                   ? debtColor(context)
-                                  : (r.onHand > 0 ? AppColors.warn : paidColor(context)),
+                                  : (r.onHand > 0 ? warnColor(context) : paidColor(context)),
                             ),
                           ),
                         ),

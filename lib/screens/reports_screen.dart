@@ -65,15 +65,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final expCount = store.expensesOf(from: from, to: to).length;
 
     return Scaffold(
-      appBar: AppBar(
-        leading: const MenuButton(),
-        title: const Text('التقارير'),
-        actions: const [SettingsButton()],
-      ),
+      appBar: AppBar(leading: const MenuButton(), title: const Text('التقارير'), actions: const [SettingsButton()]),
       body: CustomScrollView(
         slivers: [
           PinnedHeader(
-            height: 92,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: Space.md),
               child: Column(
@@ -91,7 +86,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     onSelectionChanged: (v) => _pick(v.first),
                   ),
                   const SizedBox(height: Space.sm),
-                  Text(label, style: TextStyle(color: cs.onSurfaceVariant, fontWeight: FontWeight.w600)),
+                  Text(
+                    label,
+                    style: TextStyle(color: cs.onSurfaceVariant, fontWeight: FontWeight.w600),
+                  ),
                 ],
               ),
             ),
@@ -116,23 +114,23 @@ class _ReportsScreenState extends State<ReportsScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text('صافي الربح', style: TextStyle(color: cs.onPrimary.withValues(alpha: .85))),
+                                  Text('صافي الربح', style: TextStyle(color: kOnHero.withValues(alpha: .85))),
                                   FittedBox(
                                     fit: BoxFit.scaleDown,
                                     alignment: AlignmentDirectional.centerStart,
-                                    child: MoneyText(r.netProfit, size: 32, color: cs.onPrimary, showCurrency: true),
+                                    child: MoneyText(r.netProfit, size: 32, color: kOnHero, showCurrency: true),
                                   ),
                                   const SizedBox(height: Space.xs),
                                   Text(
                                     'مبيعات ${money(r.netSales)} · مصاريف ${money(r.expenses)}',
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(color: cs.onPrimary.withValues(alpha: .85), fontSize: 13),
+                                    style: TextStyle(color: kOnHero.withValues(alpha: .85), fontSize: 13),
                                   ),
                                 ],
                               ),
                             ),
-                            Icon(Icons.chevron_left_rounded, color: cs.onPrimary),
+                            const Icon(Icons.chevron_left_rounded, color: kOnHero),
                           ],
                         ),
                       ),
@@ -153,7 +151,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     _Kpi('حصّلت', r.collected, Icons.south_west_rounded, paidColor(context)),
                     _Kpi('دفعت للتاجر', r.traderPaid, Icons.north_east_rounded, cs.tertiary),
                     _Kpi('الباقي عند البقالات', store.totalOwed, Icons.storefront_rounded, debtColor(context)),
-                    _Kpi('في يدك', r.cashFlow, Icons.account_balance_wallet_rounded, balanceColor(context, -r.cashFlow)),
+                    _Kpi(
+                      'في يدك',
+                      r.cashFlow,
+                      Icons.account_balance_wallet_rounded,
+                      balanceColor(context, -r.cashFlow),
+                    ),
                   ],
                 ),
 
@@ -266,7 +269,10 @@ class _Page extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(title),
-            Text(label, style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant, fontWeight: FontWeight.w600)),
+            Text(
+              label,
+              style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant, fontWeight: FontWeight.w600),
+            ),
           ],
         ),
       ),
@@ -285,7 +291,9 @@ class _ProfitPage extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: Space.lg, vertical: Space.md),
       child: Row(
         children: [
-          Expanded(child: Text(a, style: TextStyle(fontWeight: bold ? FontWeight.w700 : FontWeight.w500))),
+          Expanded(
+            child: Text(a, style: TextStyle(fontWeight: bold ? FontWeight.w700 : FontWeight.w500)),
+          ),
           Text(
             v < 0 ? '− ${money(-v)}' : money(v),
             textDirection: TextDirection.ltr,
@@ -353,7 +361,9 @@ class _ProductsPage extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Expanded(child: Text(p.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16))),
+                      Expanded(
+                        child: Text(p.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                      ),
                       Text('${qtyText(p.qty)} ${p.unit}', style: TextStyle(color: cs.onSurfaceVariant)),
                     ],
                   ),
@@ -365,7 +375,9 @@ class _ProductsPage extends StatelessWidget {
                   const SizedBox(height: Space.sm),
                   Row(
                     children: [
-                      Expanded(child: Text('مبيعات ${money(p.sales)}', style: TextStyle(color: cs.onSurfaceVariant))),
+                      Expanded(
+                        child: Text('مبيعات ${money(p.sales)}', style: TextStyle(color: cs.onSurfaceVariant)),
+                      ),
                       Text(
                         'ربح ${money(p.profit)}',
                         style: TextStyle(fontWeight: FontWeight.w700, color: paidColor(context)),
@@ -425,7 +437,9 @@ class _DailyPage extends StatelessWidget {
       label: label,
       children: [
         if (days.length > 1)
-          Card(child: Padding(padding: const EdgeInsets.all(Space.md), child: salesBars(context, days, r.dailySales))),
+          Card(
+            child: Padding(padding: const EdgeInsets.all(Space.md), child: salesBars(context, days, r.dailySales)),
+          ),
         Card(
           child: Column(
             children: [
@@ -447,40 +461,40 @@ class _DailyPage extends StatelessWidget {
 }
 
 Widget salesBars(BuildContext c, List<String> days, Map<String, int> data) {
-    final maxV = days.fold<int>(1, (m, d) => (data[d] ?? 0) > m ? data[d]! : m);
-    final color = Theme.of(c).colorScheme.primary;
-    final showEvery = days.length > 14 ? 3 : 1;
-    return SizedBox(
-      height: 160,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          for (var i = 0; i < days.length; i++)
-            Expanded(
-              child: Tooltip(
-                message: '${arDay(days[i])}\n${money(data[days[i]] ?? 0)}',
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 2),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      Container(
-                        height: 120.0 * ((data[days[i]] ?? 0).clamp(0, maxV)) / maxV + 2,
-                        decoration: BoxDecoration(
-                          color: days[i] == todayKey() ? color : color.withValues(alpha: 0.55),
-                          borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
-                        ),
+  final maxV = days.fold<int>(1, (m, d) => (data[d] ?? 0) > m ? data[d]! : m);
+  final color = Theme.of(c).colorScheme.primary;
+  final showEvery = days.length > 14 ? 3 : 1;
+  return SizedBox(
+    height: 160,
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        for (var i = 0; i < days.length; i++)
+          Expanded(
+            child: Tooltip(
+              message: '${arDay(days[i])}\n${money(data[days[i]] ?? 0)}',
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Container(
+                      height: 120.0 * ((data[days[i]] ?? 0).clamp(0, maxV)) / maxV + 2,
+                      decoration: BoxDecoration(
+                        color: days[i] == todayKey() ? color : color.withValues(alpha: 0.55),
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
                       ),
-                      const SizedBox(height: 4),
-                      Text(i % showEvery == 0 ? '${parseDay(days[i]).day}' : '', style: const TextStyle(fontSize: 11)),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(i % showEvery == 0 ? '${parseDay(days[i]).day}' : '', style: const TextStyle(fontSize: 11)),
+                  ],
                 ),
               ),
             ),
-        ],
-      ),
-    );
+          ),
+      ],
+    ),
+  );
 }
 
 // يستخدم في الاختبارات

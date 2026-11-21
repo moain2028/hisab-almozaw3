@@ -271,7 +271,7 @@ class ShopDetailScreen extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final (IconData icon, Color color) = switch (t.type) {
       ShopTxType.delivery => (Icons.north_east, cs.primary),
-      ShopTxType.returned => (Icons.undo, AppColors.warn),
+      ShopTxType.returned => (Icons.undo, warnColor(context)),
       ShopTxType.payment => (Icons.south_west, paidColor(context)),
       ShopTxType.discount => (Icons.discount_outlined, creditColor(context)),
     };

@@ -224,7 +224,7 @@ class _LinesEditorScreenState extends State<LinesEditorScreen> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final who = widget.shop?.name ?? widget.trader?.name ?? '';
-    final accent = widget.mode.isReturn ? AppColors.warn : cs.primary;
+    final accent = widget.mode.isReturn ? warnColor(context) : cs.primary;
     final isEdit = widget.existingShopTx != null || widget.existingTraderTx != null;
 
     return PopScope(
@@ -302,7 +302,7 @@ class _LinesEditorScreenState extends State<LinesEditorScreen> {
                 children: [
                   if (widget.mode.isReturn)
                     Card(
-                      color: AppColors.warn.withValues(alpha: 0.1),
+                      color: warnColor(context).withValues(alpha: 0.1),
                       child: const Padding(
                         padding: EdgeInsets.all(12),
                         child: Text(
@@ -402,14 +402,13 @@ class _LinesEditorScreenState extends State<LinesEditorScreen> {
                     Text(
                       'السعر ${money(pr)} / ${p.unit}',
                       style: TextStyle(
-                        color: pr != defPrice ? AppColors.warn : cs.onSurfaceVariant,
+                        color: pr != defPrice ? warnColor(context) : cs.onSurfaceVariant,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                     const SizedBox(width: 4),
                     Icon(Icons.edit, size: 14, color: cs.onSurfaceVariant),
-                    if (pr != defPrice)
-                      const Text('  (سعر خاص)', style: TextStyle(fontSize: 12, color: AppColors.warn)),
+                    if (pr != defPrice) Text('  (سعر خاص)', style: TextStyle(fontSize: 12, color: warnColor(context))),
                   ],
                 ),
               ),

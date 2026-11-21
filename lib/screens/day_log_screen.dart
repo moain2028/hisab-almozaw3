@@ -57,7 +57,6 @@ class _DayLogScreenState extends State<DayLogScreen> {
       body: CustomScrollView(
         slivers: [
           PinnedHeader(
-            height: 184,
             child: Column(
               children: [
                 const DayBar(),

@@ -124,14 +124,14 @@ class SettingsScreen extends StatelessWidget {
                 ListTile(
                   leading: Icon(
                     oldBackup ? Icons.warning_amber : Icons.cloud_done_outlined,
-                    color: oldBackup ? AppColors.warn : paidColor(context),
+                    color: oldBackup ? warnColor(context) : paidColor(context),
                   ),
                   title: const Text('النسخ الاحتياطي على الجوال', style: TextStyle(fontWeight: FontWeight.w700)),
                   subtitle: Text(
                     last == 0
                         ? 'لم تُحفظ نسخة بعد'
                         : 'آخر نسخة: ${relativeDay(dayKey(DateTime.fromMillisecondsSinceEpoch(last)))} · ${store.autoBackup ? 'تلقائي مفعّل' : 'تلقائي متوقف'}',
-                    style: TextStyle(color: oldBackup ? AppColors.warn : null),
+                    style: TextStyle(color: oldBackup ? warnColor(context) : null),
                   ),
                   trailing: const Icon(Icons.chevron_left),
                   onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BackupsScreen())),

@@ -119,7 +119,7 @@ class _CollectSheetState extends State<_CollectSheet> {
                 children: [
                   KvRow('الباقي من قبل', d.before, color: d.before > 0 ? debtColor(context) : null),
                   KvRow('عطاء ${relativeDay(widget.day)}', d.delivered, prefix: d.delivered > 0 ? '+ ' : ''),
-                  if (d.returned > 0) KvRow('مرتجع', d.returned, prefix: '− ', color: AppColors.warn),
+                  if (d.returned > 0) KvRow('مرتجع', d.returned, prefix: '− ', color: warnColor(context)),
                   if (d.discount > 0) KvRow('خصم', d.discount, prefix: '− '),
                   if (d.paid > 0) KvRow('محصّل سابقاً اليوم', d.paid, prefix: '− ', color: paidColor(context)),
                   const Divider(height: 18),
