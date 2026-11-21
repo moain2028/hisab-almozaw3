@@ -13,7 +13,8 @@
 ///   `github.com/{owner}/{repo}/{folder}/update.json`
 ///
 /// ⚠️ هذه القيم تُقرأ حرفياً من كل نسخة مثبّتة. تغييرها بعد النشر = إصدار جديد إلزامي.
-/// ⚠️ مستودع التوزيع يبقى **عاماً** حتى تنتقل كل الأجهزة إلى ≥2.5.0 (النسخ القديمة تقرأ منه فقط).
+/// منذ 2.8.0 المستودع واحد: الاحتياط في `moain2028/hisab-almozaw3/remote/` (مستودع التوزيع المنفصل أُلغي).
+/// 404 من GitHub لا يقفل أبداً: الإيقاف يأتي من المنصة فقط (التطبيق موقوف/الترخيص/الجهاز).
 library;
 
 import 'dart:convert';
@@ -24,9 +25,9 @@ import 'package:http/http.dart' as http;
 
 class RemoteConfig {
   static const owner = 'moain2028';
-  static const repo = 'hisab-almozaw3-dist';
+  static const repo = 'hisab-almozaw3';
   static const branch = 'main';
-  static const folder = 'hisab-almozaw3';
+  static const folder = 'remote';
 
   /// منصة النشر (المصدر الأساسي منذ 2.5.0)
   static const platformHost = 'api.alabbasi.uk';
@@ -160,7 +161,7 @@ class RemoteFetcher {
         final b64 = '${meta is Map ? meta['content'] ?? '' : ''}'.replaceAll(RegExp(r'\s'), '');
         if (b64.isNotEmpty) return RemoteFile.ok(_obj(utf8.decode(base64Decode(b64))));
       }
-      if (res.statusCode == 404) return RemoteFile.notFound();
+      // 404 من GitHub = «لا نعرف» لا «حُذف» (منذ 2.8.0 الإيقاف من المنصة فقط) ⇒ نجرّب الخام ثم null
     } catch (_) {
       // 403 حد الطلبات / شبكة / JSON تالف → نجرّب الخام
     }
@@ -169,7 +170,6 @@ class RemoteFetcher {
       final u = RemoteConfig.rawUri(file).replace(queryParameters: {'t': '${DateTime.now().millisecondsSinceEpoch}'});
       final res = await client.get(u, headers: _noCache).timeout(timeout);
       if (res.statusCode == 200) return RemoteFile.ok(_obj(utf8.decode(res.bodyBytes)));
-      if (res.statusCode == 404) return RemoteFile.notFound();
     } catch (_) {}
     return null;
   }
