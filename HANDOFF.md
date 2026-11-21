@@ -3,8 +3,9 @@
 > **اقرأ هذا الملف أولاً.** آخر تحديث: نهاية جلسة 2.3.0 (عمل غير مكتمل — مرفوع كما هو).
 
 ## 0) الحالة بسطر واحد
-**2.3.0 منشور** (Release `v2.3.0` في `hisab-almozaw3-dist` + `update.json` حي، SHA-256 متحقق بعد التنزيل، توقيع بنفس المفتاح C7:DD:99…). `flutter analyze` = 0 · `flutter test` = 57 ناجحة (تدقيق الواجهة 24 حالة: 0 overflow، 0 تباين < 3:1).
-صفحة التنزيلات **جاهزة ومختبرة محلياً** في `hisab-almozaw3-dist/downloads-site/` — **لم تُنشر** (تنتظر Cloudflare API Token).
+**2.3.1 منشور** (Release `v2.3.1` + `update.json` حي، SHA-256 متحقق، نفس مفتاح التوقيع). analyze = 0 · test = 57 ناجحة. تدقيق شامل في `docs/design/audit-2.3.1.md`.
+صفحة التنزيلات جاهزة ولم تُنشر (تنتظر Cloudflare API Token + Account ID).
+لقطات المراجعة: `flutter test test/screenshots_test.dart --run-skipped --update-goldens` → `test/goldens/`.
 
 ## 1) المشروع
 - تطبيق Flutter **أندرويد فقط** (حُذفت ios/linux/macos/windows في 2.3.0؛ مجلد `web/` باقٍ للمعاينة فقط).
@@ -37,7 +38,7 @@
 - [x] تصغير APK: unbundled + `--split-debug-info` → arm64 19.5MB، armv7 17.1MB (ADR 0010، `docs/design/apk-size-2.3.0.md`). الرموز في المستودع الخاص `symbols/2.3.0/`.
 - [x] 2.3.0+230 بُني ونُشر + وسم `v2.3.0`.
 - [ ] **نشر صفحة التنزيلات** — مانع: يلزم من المستخدم **API Token** (Account › Cloudflare Pages: Edit + Zone alabbasi.uk › DNS: Edit) و**Account ID**. ثم: `CLOUDFLARE_API_TOKEN=… CLOUDFLARE_ACCOUNT_ID=… hisab-almozaw3-dist/downloads-site/deploy.sh` (مشروع مستقل `alabbasi-downloads`، يلمس سجل `downloads` فقط ويتوقف لو موجود ويشير لغيره).
-- [ ] لقطات شاشة جديدة `docs/screenshots/` + تحديث README.
+- [x] لقطات حقيقية `docs/screenshots/2.3.1/` (+ كل الشاشات في `test/goldens/`).
 - [ ] اختبار يدوي على جوال: التحديث 2.2.0 → 2.3.0 (يجب أن يظهر الآن)، الباركود (الآن يحتاج Google Play Services)، قفل الترخيص.
 
 ## 5) أوامر سريعة
