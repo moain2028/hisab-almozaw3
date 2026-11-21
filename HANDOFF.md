@@ -4,7 +4,8 @@
 
 ## 0) الحالة بسطر واحد
 **2.3.1 منشور** (Release `v2.3.1` + `update.json` حي، SHA-256 متحقق، نفس مفتاح التوقيع). analyze = 0 · test = 57 ناجحة. تدقيق شامل في `docs/design/audit-2.3.1.md`.
-صفحة التنزيلات جاهزة ولم تُنشر (تنتظر Cloudflare API Token + Account ID).
+صفحة التنزيلات **منشورة على GitHub Pages**: https://moain2028.github.io/hisab-almozaw3-dist/ · الدومين downloads.alabbasi.uk ما زال ينتظر Cloudflare Token.
+التحديث من 2.2.0 → 2.3.1 مُتحقَّق بكود 2.2.0 نفسه مقابل update.json الحي (متاح + تنزيل 200 + SHA مطابق). لم يُجرَّب التثبيت على جوال.
 لقطات المراجعة: `flutter test test/screenshots_test.dart --run-skipped --update-goldens` → `test/goldens/`.
 
 ## 1) المشروع
