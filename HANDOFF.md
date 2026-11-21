@@ -3,8 +3,8 @@
 > **اقرأ هذا الملف أولاً.** آخر تحديث: نهاية جلسة 2.3.0 (عمل غير مكتمل — مرفوع كما هو).
 
 ## 0) الحالة بسطر واحد
-الكود **يبني ونظيف** (`flutter analyze` = 0 مشاكل). الإصدار المنشور للمستخدمين = **2.2.0**.
-الكود الحالي في `main` = **2.3.0 قيد العمل** (إعادة هيكلة الواجهة) — **لم يُبنَ له APK ولم يُنشر بعد**، ولم تُشغَّل كل الاختبارات بعد التعديلات الأخيرة.
+**2.3.0 منشور** (Release `v2.3.0` في `hisab-almozaw3-dist` + `update.json` حي، SHA-256 متحقق بعد التنزيل، توقيع بنفس المفتاح C7:DD:99…). `flutter analyze` = 0 · `flutter test` = 57 ناجحة (تدقيق الواجهة 24 حالة: 0 overflow، 0 تباين < 3:1).
+صفحة التنزيلات **جاهزة ومختبرة محلياً** في `hisab-almozaw3-dist/downloads-site/` — **لم تُنشر** (تنتظر Cloudflare API Token).
 
 ## 1) المشروع
 - تطبيق Flutter **أندرويد فقط** (حُذفت ios/linux/macos/windows في 2.3.0؛ مجلد `web/` باقٍ للمعاينة فقط).
@@ -32,21 +32,19 @@
 7. **تواصل مع المطوّر**: `lib/core/developer.dart` (+967770941666، alabbasi.uk، downloads.alabbasi.uk) + `lib/screens/developer_screen.dart` + روابط في القائمة الجانبية والإعدادات + زر «اطلب الكود (واتساب)» في شاشة قفل الترخيص.
 8. حذف منصات غير أندرويد.
 
-## 4) المتبقي (بالترتيب المقترح)
-- [ ] **تشغيل كل الاختبارات** `flutter test` وإصلاح ما يلزم. `test/ui_audit_test.dart` يعتمد على نصوص القائمة الجانبية ('الأصناف والأسعار','المصاريف','الإعدادات') وقد يحتاج تحديثاً للرئيسية الجديدة. أضف «سجل اليوم» و«تواصل مع المطوّر» لمسار التدقيق.
-- [ ] **دمج فحص التباين داخل `ui_audit_test`** لكل الشاشات بالوضعين الفاتح والداكن (حالياً contrast_test يغطي الشرائح/الأزرار/نموذج الصنف فقط).
-- [ ] **تصغير APK**: ماسح الباركود يضيف ~4.9MB (`libbarhopper_v3.so`). الخيار: `dev.steenbakker.mobile_scanner.useUnbundled=true` في `android/gradle.properties` (يستخدم Google Play Services، أصغر بكثير، لكن يحتاج GMS). القرار للمستخدم: يريد حجماً صغيراً وأندرويد فقط. البناء: `flutter build apk --release --split-per-abi --target-platform android-arm,android-arm64`.
-- [ ] رفع الإصدار إلى `2.3.0+230` في `pubspec.yaml` و `kAppVersion` في `lib/ui/theme.dart`.
-- [ ] بناء APK موقّع → Release `v2.3.0` في `hisab-almozaw3-dist` → `python3 tool/make_update_json.py ...` → رفع `update.json` → التحقق من SHA-256 بعد التنزيل.
-- [ ] **صفحة التنزيلات `downloads.alabbasi.uk`** (Cloudflare Pages، مشروع جديد مستقل — الدومين فيه صفحات كثيرة فلا تلمس غيرها): صفحة عربية RTL لكل تطبيقات المطوّر (اسم، نوع، إصدار، حجم، زر تنزيل arm64/armv7، تعليمات التثبيت). المحتوى يُقرأ من `update.json`. **مانع:** المفتاح الذي أرسله المستخدم (`db12…` 37 حرفاً) هو **Global API Key** ويحتاج بريد حساب Cloudflare (جُرّبت manusdate@gmail.com و moain2028@gmail.com وفشلت). المطلوب من المستخدم: **API Token** (صلاحيات: Pages Edit + DNS Edit على zone alabbasi.uk) أو البريد الصحيح.
-- [ ] لقطات شاشة جديدة `docs/screenshots/` + تحديث README/CHANGELOG/STATUS + ADR 0008 (رئيسية ثابتة + رؤوس مثبتة) + ADR 0009 (أندرويد فقط).
-- [ ] اختبار يدوي على جوال حقيقي: الباركود، التحديث عن بعد (يظهر عند نشر 2.3.0 فوق 2.2.0)، قفل الترخيص.
+## 4) المتبقي (بالترتيب)
+- [x] analyze + test (أُصلح 5 حالات overflow + تباين الوضع الداكن؛ التباين مدموج في `ui_audit_test` لكل الشاشات فاتح/داكن؛ سجل اليوم وتواصل المطوّر في المسار).
+- [x] تصغير APK: unbundled + `--split-debug-info` → arm64 19.5MB، armv7 17.1MB (ADR 0010، `docs/design/apk-size-2.3.0.md`). الرموز في المستودع الخاص `symbols/2.3.0/`.
+- [x] 2.3.0+230 بُني ونُشر + وسم `v2.3.0`.
+- [ ] **نشر صفحة التنزيلات** — مانع: يلزم من المستخدم **API Token** (Account › Cloudflare Pages: Edit + Zone alabbasi.uk › DNS: Edit) و**Account ID**. ثم: `CLOUDFLARE_API_TOKEN=… CLOUDFLARE_ACCOUNT_ID=… hisab-almozaw3-dist/downloads-site/deploy.sh` (مشروع مستقل `alabbasi-downloads`، يلمس سجل `downloads` فقط ويتوقف لو موجود ويشير لغيره).
+- [ ] لقطات شاشة جديدة `docs/screenshots/` + تحديث README.
+- [ ] اختبار يدوي على جوال: التحديث 2.2.0 → 2.3.0 (يجب أن يظهر الآن)، الباركود (الآن يحتاج Google Play Services)، قفل الترخيص.
 
 ## 5) أوامر سريعة
 ```bash
 flutter pub get && flutter analyze && flutter test
 flutter build web --release   # معاينة فقط
-flutter build apk --release --split-per-abi --target-platform android-arm,android-arm64
+flutter build apk --release --split-per-abi --target-platform android-arm,android-arm64 --split-debug-info=build/symbols
 python3 tool/license_hash.py NEW-CODE          # هاش كود ترخيص جديد → codeHash في dist
 python3 tool/make_update_json.py --help         # توليد update.json
 ```
