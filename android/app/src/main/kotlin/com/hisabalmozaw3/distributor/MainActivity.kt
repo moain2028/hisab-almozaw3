@@ -12,7 +12,7 @@ import java.io.File
 
 /**
  * قناة app.update — التحديث من داخل التطبيق (UpdateService في Dart):
- *   info                -> { versionCode, versionName, abi, nativeLibDir, sdkInt, model, deviceName }
+ *   info                -> { versionCode, versionName, abi, nativeLibDir, sdkInt, model, deviceName, hwId }
  *   canInstall          -> هل يُسمح بتثبيت حزم من مصادر غير معروفة (أندرويد 8+)
  *   openInstallSettings -> يفتح شاشة "تثبيت تطبيقات غير معروفة" لهذا التطبيق
  *   install(path)       -> يفتح مثبّت النظام على APK داخل cache/updates (FileProvider)
@@ -38,6 +38,8 @@ class MainActivity : FlutterActivity() {
                             "model" to "${Build.MANUFACTURER} ${Build.MODEL}".trim(),
                             // الاسم الذي سمّاه المستخدم (الإعدادات ← حول الهاتف ← اسم الجهاز). لا يحتاج أي إذن.
                             "deviceName" to deviceName(),
+                            // ANDROID_ID: ثابت لنفس (التطبيق+المستخدم+الجهاز) حتى بعد حذف التطبيق وإعادة تثبيته (أندرويد 8+). بلا أذونات.
+                            "hwId" to (try { Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID) } catch (_: Exception) { null } ?: ""),
                         ))
                     }
                     "canInstall" -> result.success(canInstall())

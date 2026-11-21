@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../core/format.dart';
@@ -136,24 +135,6 @@ class SettingsScreen extends StatelessWidget {
                   trailing: const Icon(Icons.chevron_left),
                   onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BackupsScreen())),
                 ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(Icons.copy_all),
-                  title: const Text('نسخ البيانات كنص', style: TextStyle(fontWeight: FontWeight.w700)),
-                  subtitle: const Text('ينسخ كل الحسابات كنص، الصقه في واتساب أو ملاحظات'),
-                  onTap: () async {
-                    await Clipboard.setData(ClipboardData(text: store.exportJson()));
-                    await store.markBackup();
-                    if (context.mounted) toast(context, 'تم النسخ. الصقه الآن في محادثتك مع نفسك في واتساب');
-                  },
-                ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(Icons.restore),
-                  title: const Text('استرجاع من نص', style: TextStyle(fontWeight: FontWeight.w700)),
-                  subtitle: const Text('الصق النص المحفوظ لاسترجاع الحسابات'),
-                  onTap: () => _restore(context, store),
-                ),
               ],
             ),
           ),
@@ -216,47 +197,6 @@ class SettingsScreen extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  Future<void> _restore(BuildContext context, Store store) async {
-    final clip = await Clipboard.getData(Clipboard.kTextPlain);
-    if (!context.mounted) return;
-    final ctl = TextEditingController(text: (clip?.text ?? '').contains('hisab_almozaw3') ? clip!.text : '');
-    final mode = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('استرجاع البيانات'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: ctl,
-              maxLines: 5,
-              style: const TextStyle(fontSize: 11),
-              textDirection: TextDirection.ltr,
-              decoration: const InputDecoration(hintText: 'الصق نص النسخة الاحتياطية هنا'),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'دمج: يضيف ويحدّث بدون مسح.\nاستبدال: يمسح الحالي ويرجع النسخة.',
-              style: TextStyle(fontSize: 12.5),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
-          TextButton(onPressed: () => Navigator.pop(ctx, 'replace'), child: const Text('استبدال')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, 'merge'), child: const Text('دمج')),
-        ],
-      ),
-    );
-    if (mode == null || !context.mounted) return;
-    try {
-      final n = await store.importJson(ctl.text, replace: mode == 'replace');
-      if (context.mounted) toast(context, 'تم استرجاع $n سجل');
-    } catch (e) {
-      if (context.mounted) toast(context, 'النص غير صالح. تأكد أنك لصقت النسخة كاملة.');
-    }
   }
 }
 

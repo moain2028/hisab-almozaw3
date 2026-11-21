@@ -1,8 +1,17 @@
+/// backups_screen.dart — النسخ الاحتياطي (منذ 2.7.0 على نمط واتساب «النسخ الاحتياطي للدردشات»).
+///
+/// المبدأ (معيار القوائم في docs/standards/lists.md): **الصفحة ثابتة لا تطول مهما كثرت النسخ**.
+///   - بطاقة الحالة: آخر نسخة + المكان + النسخ التلقائي.
+///   - زران في صف واحد: «نسخ الآن» · «استرجاع».
+///   - «استرجاع» يفتح نافذة سفلية (Bottom Sheet) فيها النسخ مجمّعة بالأيام، 8 في الصفحة مع ترقيم،
+///     وفي أعلاها «من ملف آخر…». الضغط على نسخة يعرض محتواها (بقالات/أصناف/حركات) قبل أي تغيير.
+///   - لا يوجد «نسخ كنص» ولا «استرجاع من نص» (ممنوع: يتجاوز التحقق بالبصمة ويُفسد البيانات بسهولة).
+library;
+
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -12,16 +21,25 @@ import '../data/store.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 
-/// إدارة النسخ الاحتياطية (مثل "النسخ الاحتياطي للدردشات" في واتساب)
 class BackupsScreen extends StatefulWidget {
-  const BackupsScreen({super.key, this.pickToRestore = false});
+  const BackupsScreen({super.key, this.pickToRestore = false, this.debugFiles});
 
-  /// من شاشة أول تشغيل: بعد الاسترجاع نرجع true
+  /// للاختبارات/اللقطات فقط: قائمة جاهزة بدل قراءة المجلد
+  @visibleForTesting
+  final List<BackupFile>? debugFiles;
+
+  /// من شاشة أول تشغيل: تُفتح نافذة الاسترجاع مباشرة، وبعد الاسترجاع نرجع true
   final bool pickToRestore;
 
   @override
   State<BackupsScreen> createState() => _BackupsScreenState();
 }
+
+String backupSize(int b) => b < 1024
+    ? '$b بايت'
+    : (b < 1 << 20 ? '${(b / 1024).toStringAsFixed(1)} ك.ب' : '${(b / (1 << 20)).toStringAsFixed(1)} م.ب');
+
+String backupKind(BackupFile b) => b.isAuto ? 'تلقائية' : (b.name.contains('before-restore') ? 'قبل استرجاع' : 'يدوية');
 
 class _BackupsScreenState extends State<BackupsScreen> {
   List<BackupFile>? files;
@@ -33,10 +51,19 @@ class _BackupsScreenState extends State<BackupsScreen> {
   @override
   void initState() {
     super.initState();
-    _load();
+    _load().then((_) {
+      if (widget.pickToRestore && mounted) _openRestore();
+    });
   }
 
   Future<void> _load() async {
+    if (widget.debugFiles != null) {
+      setState(() {
+        files = widget.debugFiles;
+        path = 'Android/media/com.hisabalmozaw3.distributor/Backups';
+      });
+      return;
+    }
     if (!BackupService.supported) {
       setState(() => files = const []);
       return;
@@ -57,11 +84,19 @@ class _BackupsScreenState extends State<BackupsScreen> {
     if (!mounted) return;
     setState(() => busy = false);
     haptic(context, strong: true);
-    toast(
-      context,
-      f == null ? 'تعذّر إنشاء النسخة: ${svc.lastError ?? ''}' : 'تم حفظ نسخة احتياطية (${_size(f.size)})',
-    );
+    toast(context, f == null ? 'تعذّر إنشاء النسخة: ${svc.lastError ?? ''}' : 'تم حفظ نسخة (${backupSize(f.size)})');
     await _load();
+  }
+
+  Future<void> _openRestore() async {
+    final picked = await showModalBottomSheet<File>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      useSafeArea: true,
+      builder: (_) => _RestoreSheet(files: files ?? const [], svc: svc, onChanged: _load),
+    );
+    if (picked != null && mounted) await _restore(picked);
   }
 
   Future<void> _restore(File f) async {
@@ -78,17 +113,24 @@ class _BackupsScreenState extends State<BackupsScreen> {
     final mode = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.restore_rounded),
         title: const Text('استرجاع هذه النسخة؟'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('${n('shops')} بقالة · ${n('products')} صنف · ${n('shopTxs') + n('traderTxs')} حركة'),
-            const SizedBox(height: 12),
+            Row(
+              children: [
+                _Count(n('shops'), 'بقالة'),
+                _Count(n('products'), 'صنف'),
+                _Count(n('shopTxs') + n('traderTxs'), 'حركة'),
+              ],
+            ),
+            const SizedBox(height: Space.md),
             const Text(
-              'استبدال: يرجّع الحسابات كما كانت في النسخة (يُحفظ الوضع الحالي تلقائياً قبلها).\n\n'
+              'استبدال: يرجّع الحسابات كما كانت في النسخة (يُحفظ الوضع الحالي تلقائياً قبلها).\n'
               'دمج: يضيف ما في النسخة بدون حذف شيء.',
-              style: TextStyle(fontSize: 13.5),
+              style: TextStyle(fontSize: 13.5, height: 1.6),
             ),
           ],
         ),
@@ -117,22 +159,6 @@ class _BackupsScreenState extends State<BackupsScreen> {
     await _load();
   }
 
-  Future<void> _pickFile() async {
-    final r = await FilePicker.platform.pickFiles(type: FileType.any);
-    final p = r?.files.single.path;
-    if (p != null) await _restore(File(p));
-  }
-
-  Future<void> _share(BackupFile b) async {
-    await Share.shareXFiles([
-      XFile(b.file.path, mimeType: 'application/octet-stream'),
-    ], text: 'نسخة احتياطية - حساب الموزع');
-  }
-
-  String _size(int b) => b < 1024
-      ? '$b بايت'
-      : (b < 1 << 20 ? '${(b / 1024).toStringAsFixed(1)} ك.ب' : '${(b / (1 << 20)).toStringAsFixed(1)} م.ب');
-
   String _when(DateTime d) => '${relativeDay(dayKey(d))} · ${timeOf(d.millisecondsSinceEpoch)}';
 
   @override
@@ -143,159 +169,287 @@ class _BackupsScreenState extends State<BackupsScreen> {
       return Scaffold(
         appBar: AppBar(title: const Text('النسخ الاحتياطي')),
         body: const Center(
-          child: EmptyState(
-            icon: Icons.phone_android,
-            text:
-                'النسخ الاحتياطي في ملفات يعمل على تطبيق أندرويد.\nفي المعاينة استخدم "نسخ البيانات كنص" من الإعدادات.',
-          ),
+          child: EmptyState(icon: Icons.phone_android, text: 'النسخ الاحتياطي في ملفات يعمل على تطبيق أندرويد.'),
         ),
       );
     }
+    final n = files?.length ?? 0;
     return Scaffold(
       appBar: AppBar(title: const Text('النسخ الاحتياطي')),
       body: files == null
           ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _load,
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
-                children: [
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(Icons.cloud_done_rounded, color: cs.primary, size: 30),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  store.lastBackup == 0
-                                      ? 'لا توجد نسخة بعد'
-                                      : 'آخر نسخة: ${_when(DateTime.fromMillisecondsSinceEpoch(store.lastBackup))}',
-                                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15.5),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            'تُحفظ النسخ على الجوال في المجلد:',
-                            style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13),
-                          ),
-                          const SizedBox(height: 4),
-                          InkWell(
-                            onTap: () {
-                              Clipboard.setData(ClipboardData(text: path));
-                              toast(context, 'تم نسخ المسار');
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.all(10),
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(Space.md, 0, Space.md, Space.xl),
+              children: [
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(Space.lg),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 52,
+                              height: 52,
                               decoration: BoxDecoration(
-                                color: cs.surfaceContainerHighest.withValues(alpha: 0.6),
-                                borderRadius: BorderRadius.circular(10),
+                                color: cs.primaryContainer,
+                                borderRadius: BorderRadius.circular(Radii.md),
                               ),
-                              child: Text(
-                                path,
-                                textDirection: TextDirection.ltr,
-                                style: const TextStyle(fontSize: 12.5, fontFamily: 'monospace'),
+                              child: Icon(Icons.cloud_done_rounded, color: cs.onPrimaryContainer, size: 28),
+                            ),
+                            const SizedBox(width: Space.md),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    store.lastBackup == 0
+                                        ? 'لا توجد نسخة بعد'
+                                        : 'آخر نسخة: ${_when(DateTime.fromMillisecondsSinceEpoch(store.lastBackup))}',
+                                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15.5),
+                                  ),
+                                  Text(
+                                    '$n نسخة على الجوال · تبقى حتى لو حُذف التطبيق',
+                                    style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12.5),
+                                  ),
+                                ],
                               ),
                             ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            '• يبقى المجلد حتى لو حذفت التطبيق، فتقدر تسترجع بعد إعادة التثبيت.\n'
-                            '• للحماية من ضياع الجوال: شارك نسخة لنفسك على واتساب أو تلجرام أو Drive.',
-                            style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12.5, height: 1.6),
-                          ),
-                          const SizedBox(height: 12),
-                          FilledButton.icon(
-                            onPressed: busy ? null : _create,
-                            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
-                            icon: busy
-                                ? const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
-                                  )
-                                : const Icon(Icons.backup_outlined),
-                            label: const Text('نسخ احتياطي الآن'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Card(
-                    child: Column(
-                      children: [
-                        SwitchListTile(
-                          value: store.autoBackup,
-                          onChanged: (v) => store.setMeta('autoBackup', v),
-                          secondary: const Icon(Icons.autorenew),
-                          title: const Text('نسخ تلقائي', style: TextStyle(fontWeight: FontWeight.w700)),
-                          subtitle: const Text('بعد كل تعديل بثوانٍ، وعند الخروج من التطبيق. يحتفظ بآخر 14 يوماً.'),
+                          ],
                         ),
-                        const Divider(height: 1),
-                        ListTile(
-                          leading: const Icon(Icons.folder_open_outlined),
-                          title: const Text('استرجاع من ملف آخر', style: TextStyle(fontWeight: FontWeight.w700)),
-                          subtitle: const Text('ملف .hisab نزّلته من واتساب أو تلجرام'),
-                          onTap: busy ? null : _pickFile,
+                        const SizedBox(height: Space.lg),
+                        // زران في صف واحد (لا أزرار متراكمة عمودياً)
+                        Row(
+                          children: [
+                            Expanded(
+                              child: FilledButton.icon(
+                                onPressed: busy ? null : _create,
+                                style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+                                icon: busy
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                      )
+                                    : const Icon(Icons.backup_outlined),
+                                label: const Text('نسخ الآن'),
+                              ),
+                            ),
+                            const SizedBox(width: Space.sm),
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: busy ? null : _openRestore,
+                                style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+                                icon: const Icon(Icons.restore_rounded),
+                                label: const Text('استرجاع'),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
                   ),
-                  SectionTitle(
-                    'النسخ على الجوال',
-                    trailing: Text('${files!.length}', style: TextStyle(color: cs.onSurfaceVariant)),
-                  ),
-                  if (files!.isEmpty)
-                    const EmptyState(icon: Icons.inventory_2_outlined, text: 'لا توجد نسخ محفوظة بعد'),
-                  for (final b in files!)
-                    Card(
-                      child: ListTile(
-                        leading: Icon(
-                          b.isAuto
-                              ? Icons.autorenew
-                              : (b.name.contains('before-restore') ? Icons.shield_outlined : Icons.save_outlined),
-                          color: cs.primary,
-                        ),
-                        title: Text(_when(b.modified), style: const TextStyle(fontWeight: FontWeight.w700)),
+                ),
+                Card(
+                  child: Column(
+                    children: [
+                      SwitchListTile(
+                        value: store.autoBackup,
+                        onChanged: (v) => store.setMeta('autoBackup', v),
+                        secondary: const Icon(Icons.autorenew),
+                        title: const Text('نسخ تلقائي', style: TextStyle(fontWeight: FontWeight.w700)),
+                        subtitle: const Text('بعد كل تعديل بثوانٍ وعند الخروج. يحتفظ بآخر 14 يوماً.'),
+                      ),
+                      const Divider(height: 1),
+                      ListTile(
+                        leading: const Icon(Icons.folder_outlined),
+                        title: const Text('مكان الحفظ', style: TextStyle(fontWeight: FontWeight.w700)),
                         subtitle: Text(
-                          '${b.isAuto ? 'تلقائية' : (b.name.contains('before-restore') ? 'قبل استرجاع' : 'يدوية')} · ${_size(b.size)}',
-                        ),
-                        onTap: busy ? null : () => _restore(b.file),
-                        trailing: PopupMenuButton<String>(
-                          onSelected: (v) async {
-                            if (v == 'share') await _share(b);
-                            if (v == 'restore') await _restore(b.file);
-                            if (v == 'delete' && context.mounted && await confirm(context, 'حذف هذه النسخة؟')) {
-                              await svc.delete(b);
-                              await _load();
-                            }
-                          },
-                          itemBuilder: (_) => const [
-                            PopupMenuItem(
-                              value: 'restore',
-                              child: ListTile(leading: Icon(Icons.restore), title: Text('استرجاع')),
-                            ),
-                            PopupMenuItem(
-                              value: 'share',
-                              child: ListTile(leading: Icon(Icons.share_outlined), title: Text('مشاركة (واتساب...)')),
-                            ),
-                            PopupMenuItem(
-                              value: 'delete',
-                              child: ListTile(leading: Icon(Icons.delete_outline), title: Text('حذف')),
-                            ),
-                          ],
+                          path,
+                          textDirection: TextDirection.ltr,
+                          textAlign: TextAlign.right,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 12),
                         ),
                       ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: Space.sm, vertical: Space.sm),
+                  child: Text(
+                    'للحماية من ضياع الجوال: من «استرجاع» اضغط خيارات النسخة ثم «مشاركة» وأرسلها لنفسك على واتساب أو Drive.',
+                    style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12.5, height: 1.6),
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
+}
+
+class _Count extends StatelessWidget {
+  const _Count(this.n, this.label);
+  final int n;
+  final String label;
+  @override
+  Widget build(BuildContext context) => Expanded(
+    child: Column(
+      children: [
+        Text('$n', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+        Text(label, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12.5)),
+      ],
+    ),
+  );
+}
+
+/// نافذة اختيار نسخة للاسترجاع: مجمّعة بالأيام، 8 لكل صفحة، ترقيم ثابت أسفلها.
+class _RestoreSheet extends StatefulWidget {
+  const _RestoreSheet({required this.files, required this.svc, required this.onChanged});
+  final List<BackupFile> files;
+  final BackupService svc;
+  final Future<void> Function() onChanged;
+  @override
+  State<_RestoreSheet> createState() => _RestoreSheetState();
+}
+
+class _RestoreSheetState extends State<_RestoreSheet> {
+  static const per = 8;
+  late List<BackupFile> files = [...widget.files];
+  int page = 0;
+
+  int get pages => files.isEmpty ? 1 : (files.length + per - 1) ~/ per;
+
+  Future<void> _pickFile() async {
+    final r = await FilePicker.platform.pickFiles(type: FileType.any);
+    final p = r?.files.single.path;
+    if (p != null && mounted) Navigator.pop(context, File(p));
+  }
+
+  Future<void> _share(BackupFile b) => Share.shareXFiles([
+    XFile(b.file.path, mimeType: 'application/octet-stream'),
+  ], text: 'نسخة احتياطية - حساب الموزع');
+
+  Future<void> _delete(BackupFile b) async {
+    if (!await confirm(context, 'حذف هذه النسخة؟')) return;
+    await widget.svc.delete(b);
+    await widget.onChanged();
+    setState(() {
+      files.remove(b);
+      page = page.clamp(0, pages - 1);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final slice = files.skip(page * per).take(per).toList();
+    final rows = <Widget>[];
+    String? lastDay;
+    for (final b in slice) {
+      final d = relativeDay(dayKey(b.modified));
+      if (d != lastDay) {
+        rows.add(
+          Padding(
+            padding: const EdgeInsetsDirectional.fromSTEB(Space.lg, Space.md, Space.lg, Space.xs),
+            child: Text(
+              d,
+              style: TextStyle(color: cs.primary, fontWeight: FontWeight.w700, fontSize: 13),
+            ),
+          ),
+        );
+        lastDay = d;
+      }
+      rows.add(
+        ListTile(
+          leading: Icon(
+            b.isAuto
+                ? Icons.autorenew
+                : (b.name.contains('before-restore') ? Icons.shield_outlined : Icons.save_outlined),
+            color: cs.primary,
+          ),
+          title: Text(timeOf(b.modified.millisecondsSinceEpoch), style: const TextStyle(fontWeight: FontWeight.w700)),
+          subtitle: Text('${backupKind(b)} · ${backupSize(b.size)}'),
+          onTap: () => Navigator.pop(context, b.file),
+          trailing: PopupMenuButton<String>(
+            tooltip: 'خيارات',
+            onSelected: (v) {
+              if (v == 'share') _share(b);
+              if (v == 'delete') _delete(b);
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(
+                value: 'share',
+                child: ListTile(leading: Icon(Icons.share_outlined), title: Text('مشاركة')),
+              ),
+              PopupMenuItem(
+                value: 'delete',
+                child: ListTile(leading: Icon(Icons.delete_outline), title: Text('حذف')),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    return SizedBox(
+      height: MediaQuery.of(context).size.height * .72,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(Space.lg, 0, Space.lg, Space.sm),
+            child: Row(
+              children: [
+                const Expanded(
+                  child: Text('اختر نسخة للاسترجاع', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                ),
+                TextButton.icon(
+                  onPressed: _pickFile,
+                  icon: const Icon(Icons.folder_open_outlined),
+                  label: const Text('من ملف…'),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: files.isEmpty
+                ? const EmptyState(icon: Icons.inventory_2_outlined, text: 'لا توجد نسخ على الجوال.\nاختر «من ملف…»')
+                : ListView(children: rows),
+          ),
+          if (pages > 1) ...[
+            const Divider(height: 1),
+            SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: Space.sm, vertical: Space.xs),
+                child: Row(
+                  children: [
+                    IconButton(
+                      tooltip: 'السابق',
+                      onPressed: page > 0 ? () => setState(() => page--) : null,
+                      icon: const Icon(Icons.chevron_right),
                     ),
-                ],
+                    Expanded(
+                      child: Text(
+                        'صفحة ${page + 1} من $pages · ${files.length} نسخة',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: cs.onSurfaceVariant),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'التالي',
+                      onPressed: page < pages - 1 ? () => setState(() => page++) : null,
+                      icon: const Icon(Icons.chevron_left),
+                    ),
+                  ],
+                ),
               ),
             ),
+          ],
+        ],
+      ),
     );
   }
 }

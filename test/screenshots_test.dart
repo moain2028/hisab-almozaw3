@@ -14,6 +14,7 @@ import 'package:distributor/core/update_service.dart';
 import 'package:distributor/data/backup_service.dart';
 import 'package:distributor/data/store.dart';
 import 'package:distributor/main.dart';
+import 'package:distributor/screens/backups_screen.dart';
 import 'package:distributor/screens/collect_sheet.dart';
 import 'package:distributor/screens/day_log_screen.dart';
 import 'package:distributor/screens/developer_screen.dart';
@@ -157,6 +158,24 @@ void main() {
       await push(const ExpensesScreen(), 'expenses');
       await push(const SettingsScreen(), 'settings');
       await push(const DeveloperScreen(), 'developer');
+      // النسخ: 20 نسخة وهمية لإثبات أن الشاشة لا تطول (والنافذة مقسّمة صفحات)
+      final now = DateTime.now();
+      final fake = [
+        for (var i = 0; i < 20; i++)
+          BackupFile(
+            File('/x/hisab-${i.isEven ? 'auto' : 'manual'}-$i.hisab'),
+            now.subtract(Duration(hours: i * 7)),
+            640 + i,
+          ),
+      ];
+      unawaited(nav.push(MaterialPageRoute<void>(builder: (_) => BackupsScreen(debugFiles: fake))));
+      await shot('backups');
+      await tester.tap(find.text('استرجاع').first);
+      await shot('backups-restore-sheet');
+      nav.pop();
+      await settle();
+      nav.pop();
+      await settle();
       debugDisableShadows = true; // يجب إرجاعه قبل نهاية الاختبار (فحص ثوابت flutter_test)
     });
   }

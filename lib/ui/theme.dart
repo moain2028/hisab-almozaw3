@@ -11,7 +11,7 @@ void haptic(BuildContext c, {bool strong = false}) {
 }
 
 /// رقم الإصدار المعروض (يطابق pubspec.yaml)
-const kAppVersion = '2.6.0';
+const kAppVersion = '2.7.0';
 
 /// شبكة مسافات 4dp — كل الهوامش في التطبيق من هذه القيم فقط
 abstract final class Space {

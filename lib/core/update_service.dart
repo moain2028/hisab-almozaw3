@@ -104,6 +104,7 @@ class InstalledInfo {
     this.sdkInt = 0,
     this.model = '',
     this.deviceName = '',
+    this.hwId = '',
   });
   final int versionCode;
   final String versionName;
@@ -115,6 +116,9 @@ class InstalledInfo {
 
   /// الاسم الذي سمّى به المستخدم جهازه (الإعدادات ← حول الهاتف، أو اسم البلوتوث)
   final String deviceName;
+
+  /// ANDROID_ID (ثابت حتى بعد إعادة التثبيت): يمنع تكرار الجهاز في اللوحة
+  final String hwId;
 
   /// رقم البناء N من versionCode (Flutter split-per-abi: 1000×ABI + N)
   int get build => versionCode % 1000;
@@ -177,6 +181,7 @@ class UpdateService extends ChangeNotifier {
         sdkInt: (m['sdkInt'] as num?)?.toInt() ?? 0,
         model: '${m['model'] ?? ''}',
         deviceName: '${m['deviceName'] ?? ''}'.trim(),
+        hwId: RegExp(r'^[0-9a-fA-F]{8,64}$').hasMatch('${m['hwId'] ?? ''}') ? '${m['hwId']}'.toLowerCase() : '',
       );
     } catch (_) {
       return null;

@@ -73,7 +73,16 @@ class LicenseService extends ChangeNotifier {
   final DeviceInfoProvider deviceInfo;
   static const deviceLockedMessage = 'تم إيقاف التطبيق على هذا الجهاز. تواصل مع المطوّر لإعادة تفعيله.';
   static const file = 'license.json';
-  static const recheckEvery = Duration(minutes: 10);
+
+  /// أقل فاصل بين فحصين عند العودة للتطبيق (يمنع تكرار الطلب عند التنقل السريع)
+  static const recheckEvery = Duration(seconds: 20);
+
+  /// نبض دوري والتطبيق مفتوح: القفل/الفتح من اللوحة يصل خلال دقيقتين كحد أقصى.
+  /// الحساب: 100 جهاز × 30 نبضة/ساعة × 10 ساعات = 30 ألف طلب/يوم (حد Workers المجاني 100 ألف).
+  static const foregroundEvery = Duration(minutes: 2);
+
+  /// شاشة القفل تفحص كل 15 ثانية: الفتح من اللوحة يظهر شبه فوري
+  static const lockedEvery = Duration(seconds: 15);
 
   static const _kBlocked = 'lic_blocked';
   static const _kMessage = 'lic_message';
@@ -88,6 +97,18 @@ class LicenseService extends ChangeNotifier {
 
   /// أوامر وصلت مع آخر نبض (تعالجها CommandService)
   final ValueNotifier<List<RemoteCommand>> commands = ValueNotifier(const []);
+
+  /// آخر إصدار أعلنه النبض (null = لا تحديث يُعرض: موقوف/خارج النشر التدريجي/بلا اتصال)
+  final ValueNotifier<LatestRelease?> release = ValueNotifier(null);
+
+  /// رقم بناء النسخة المثبّتة (من النبض الأخير)
+  int installedBuild = 0;
+
+  /// التحديث الحالي إجباري: لا يدخل المستخدم حتى يحدّث
+  bool get mandatoryUpdate => release.value?.mandatoryFor(installedBuild) ?? false;
+
+  /// تحديث عادي متاح (يظهر كإشعار داخل التطبيق مرة لكل إصدار)
+  bool get updateAvailable => release.value?.newerThan(installedBuild) ?? false;
   bool _deviceCode = false;
 
   /// المدير أنشأ كود تفعيل لهذا الجهاز تحديداً (يظهر حقل الكود في شاشة القفل)
@@ -111,12 +132,36 @@ class LicenseService extends ChangeNotifier {
     _state = _fromCache();
     notifyListeners();
     unawaited(refresh());
+    if (UpdateService.supported) _schedule();
+  }
+
+  Timer? _timer;
+
+  /// النبض الدوري: كل دقيقتين والتطبيق مفتوح، وكل 15 ثانية على شاشة القفل. يتوقف في الخلفية.
+  void _schedule() {
+    _timer?.cancel();
+    _timer = Timer(allowed ? foregroundEvery : lockedEvery, () async {
+      await refresh();
+      _schedule();
+    });
+  }
+
+  /// يُستدعى عند ذهاب التطبيق للخلفية: لا نبض بلا داعٍ (بطارية/بيانات)
+  void onPaused() {
+    _timer?.cancel();
+    _timer = null;
   }
 
   Future<void> onResumed() async {
     final l = _lastCheck;
-    if (l != null && DateTime.now().difference(l) < recheckEvery) return;
-    await refresh();
+    if (l == null || DateTime.now().difference(l) >= recheckEvery) await refresh();
+    if (UpdateService.supported) _schedule();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
   }
 
   Future<LicenseState> refresh() async {
@@ -156,6 +201,7 @@ class LicenseService extends ChangeNotifier {
     final i = await UpdateService.installed();
     if (i == null) return null;
     return {
+      if (i.hwId.isNotEmpty) 'hwId': i.hwId,
       'version': i.versionName,
       'build': i.build,
       'abi': i.abi,
@@ -169,6 +215,8 @@ class LicenseService extends ChangeNotifier {
     try {
       final info = await deviceInfo();
       if (info == null) return null;
+      final b = info['build'];
+      if (b is int) installedBuild = b;
       return await fetcher.ping({'deviceId': deviceId(), ...info});
     } catch (_) {
       return null;
@@ -181,6 +229,12 @@ class LicenseService extends ChangeNotifier {
     final base = await _checkLicense(r[0] as RemoteFile?);
     final p = r[1] as PingResult?;
     if (p != null) {
+      // إعادة تثبيت على نفس الجهاز: الخادم يعيد المعرّف القديم ⇒ نعتمده (لا جهاز مكرر في اللوحة)
+      final cid = p.canonicalId;
+      if (cid != null && RegExp(r'^[0-9a-f]{48}$').hasMatch(cid) && cid != store.meta<String>(kDeviceId)) {
+        await _put({kDeviceId: cid});
+      }
+      release.value = p.updateBlocked ? null : p.latest;
       _deviceCode = p.deviceCode;
       await _put({_kDevBlocked: !p.deviceActive, _kDevCode: p.deviceCode});
       if (p.commands.isNotEmpty) commands.value = p.commands;
@@ -248,6 +302,8 @@ class LicenseService extends ChangeNotifier {
     if (code.isEmpty || input.trim().isEmpty) return false;
     final ok = hashCode_(input) == code;
     if (ok) {
+      // يُسجَّل في المنصة أن هذا الجهاز فُعّل بالكود (لا ننتظر: التفعيل يعمل حتى بلا اتصال)
+      unawaited(fetcher.post('activate', {'deviceId': deviceId(), 'code': input.trim()}));
       await _put({_kActivated: code, _kBlocked: false});
       _state = const LicenseState(allowed: true);
       notifyListeners();

@@ -7,6 +7,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
 import 'core/command_service.dart';
+import 'core/remote_config.dart';
 import 'core/license_service.dart';
 import 'core/update_service.dart';
 import 'data/backup_service.dart';
@@ -17,7 +18,7 @@ import 'screens/reports_screen.dart';
 import 'screens/shops_screen.dart';
 import 'screens/today_screen.dart';
 import 'screens/trader_screen.dart';
-import 'screens/update_screen.dart';
+import 'screens/update_gate.dart';
 import 'ui/app_drawer.dart';
 import 'ui/shell.dart';
 import 'ui/theme.dart';
@@ -90,7 +91,10 @@ class _Lifecycle with WidgetsBindingObserver {
   final LicenseService license;
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused) unawaited(backup.flushPending());
+    if (state == AppLifecycleState.paused) {
+      unawaited(backup.flushPending());
+      license.onPaused();
+    }
     if (state == AppLifecycleState.resumed) unawaited(license.onResumed());
   }
 }
@@ -121,7 +125,7 @@ class DistributorApp extends StatelessWidget {
         data: MediaQuery.of(ctx).copyWith(textScaler: TextScaler.linear(scale)),
         child: child!,
       ),
-      home: LicenseGate(child: onboarded ? const HomeShell() : const OnboardingScreen()),
+      home: LicenseGate(child: UpdateGate(child: onboarded ? const HomeShell() : const OnboardingScreen())),
     );
   }
 }
@@ -144,20 +148,23 @@ class _HomeShellState extends State<HomeShell> {
   @override
   void initState() {
     super.initState();
-    // فحص التحديث التلقائي (مرة كل 24 ساعة، أندرويد فقط) بعد استقرار الواجهة
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!UpdateService.supported) return;
-      await Future<void>.delayed(const Duration(seconds: 3));
-      if (!mounted) return;
-      final r = await context.read<UpdateService>().autoCheck();
-      if (r != null && mounted) await showUpdateDialog(context, r);
-    });
+    // التحديث العادي: إشعار مرة لكل إصدار فور وصوله مع النبض (الإجباري تتولاه UpdateGate)
+    _updates = UpdateNotifier(context);
+    _release = context.read<LicenseService>().release..addListener(_onRelease);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _onRelease());
     // رسائل لوحة المنصة: تظهر كحوار واحد في كل مرة
     _inbox = context.read<CommandService>().inbox..addListener(_showInbox);
     WidgetsBinding.instance.addPostFrameCallback((_) => _showInbox());
   }
 
   late final ValueNotifier<List<InboxMessage>> _inbox;
+  late final UpdateNotifier _updates;
+  late final ValueNotifier<LatestRelease?> _release;
+
+  void _onRelease() {
+    if (mounted && !_showingMsg) unawaited(_updates.maybeShow());
+  }
+
   bool _showingMsg = false;
 
   Future<void> _showInbox() async {
@@ -182,6 +189,7 @@ class _HomeShellState extends State<HomeShell> {
   @override
   void dispose() {
     _inbox.removeListener(_showInbox);
+    _release.removeListener(_onRelease);
     super.dispose();
   }
 

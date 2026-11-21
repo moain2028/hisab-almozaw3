@@ -28,7 +28,7 @@ class _FakeFetcher extends RemoteFetcher {
 }
 
 /// الشاشات الفرعية التي تُفتح من القائمة الجانبية / زر الإعدادات
-const drawerPages = ['الأصناف والأسعار', 'المصاريف', 'الإعدادات', 'تواصل مع المطوّر'];
+const drawerPages = ['الأصناف', 'المصاريف', 'الإعدادات', 'المطوّر'];
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -221,16 +221,13 @@ void main() {
               await tester.tap(find.byTooltip('القائمة').first);
               await settle();
               scanTargets('drawer');
-              final inDrawer = find.descendant(of: find.byType(NavigationDrawer), matching: find.text(page));
-              await tester.scrollUntilVisible(
-                inDrawer,
-                80,
-                scrollable: find.descendant(of: find.byType(NavigationDrawer), matching: find.byType(Scrollable)).first,
-              );
+              // القائمة بلا تمرير (2.7.0): كل الوجهات يجب أن تكون ظاهرة مباشرة
+              final inDrawer = find.descendant(of: find.byType(Drawer), matching: find.text(page));
+              expect(inDrawer, findsOneWidget, reason: 'القائمة الجانبية يجب ألا تحتاج تمريراً ($page)');
               await tester.tap(inDrawer.last);
               await settle();
               scanTargets(page);
-              if (page == 'الأصناف والأسعار') {
+              if (page == 'الأصناف') {
                 await tester.tap(find.text('إضافة صنف جديد').first);
                 await settle();
                 scanTargets('نموذج الصنف');

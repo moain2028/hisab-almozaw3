@@ -4,10 +4,11 @@ import 'package:provider/provider.dart';
 import '../core/license_service.dart';
 import '../ui/theme.dart';
 import '../core/developer.dart';
-import 'backups_screen.dart';
 import 'developer_screen.dart';
 
-/// شاشة القفل: تظهر بدل التطبيق عند إيقاف الترخيص. البيانات لا تُمس.
+/// شاشة القفل: «موقوف = موقوف». لا دخول لأي شاشة (ولا النسخ الاحتياطي) حتى يُفعَّل:
+///   1) من اللوحة (يُكتشف تلقائياً خلال 15 ثانية)، أو 2) بكود التفعيل (العام أو كود الجهاز).
+/// البيانات على الجهاز لا تُمس.
 class LicenseLockScreen extends StatefulWidget {
   const LicenseLockScreen({super.key});
   @override
@@ -66,20 +67,6 @@ class _LicenseLockScreenState extends State<LicenseLockScreen> {
                   textAlign: TextAlign.center,
                   style: TextStyle(color: cs.onSurfaceVariant, fontSize: 15, height: 1.6),
                 ),
-                const SizedBox(height: Space.sm),
-                Card(
-                  color: paidColor(context).withValues(alpha: .08),
-                  child: const Padding(
-                    padding: EdgeInsets.all(Space.sm),
-                    child: Row(
-                      children: [
-                        Icon(Icons.shield_outlined, size: 20),
-                        SizedBox(width: Space.sm),
-                        Expanded(child: Text('بياناتك محفوظة كما هي ولم يُحذف أي شيء.')),
-                      ],
-                    ),
-                  ),
-                ),
                 const SizedBox(height: Space.lg),
                 if (st.codeAccepted) ...[
                   TextField(
@@ -99,33 +86,37 @@ class _LicenseLockScreenState extends State<LicenseLockScreen> {
                         ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5))
                         : const Text('تفعيل'),
                   ),
+                  const SizedBox(height: Space.sm),
                 ],
-                const SizedBox(height: Space.sm),
-                OutlinedButton.icon(
-                  onPressed: busy ? null : lic.refresh,
-                  style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('إعادة الفحص'),
-                ),
-                // طلب كود التفعيل مباشرة من المطوّر (واتساب)
-                FilledButton.tonalIcon(
-                  onPressed: () => openUri(
-                    context,
-                    Developer.whatsapp(
-                      st.deviceLocked
-                          ? 'أريد إعادة تفعيل حساب الموزع على جهازي (${lic.shortDeviceId})'
-                          : 'أريد كود تفعيل تطبيق حساب الموزع',
+                // إجراءان في صف واحد: اطلب الكود · إعادة الفحص (الفتح من اللوحة يُكتشف تلقائياً كل 15 ثانية)
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: FilledButton.tonalIcon(
+                        onPressed: () => openUri(
+                          context,
+                          Developer.whatsapp(
+                            'أريد ${st.deviceLocked ? 'إعادة تفعيل' : 'كود تفعيل'} حساب الموزع'
+                            '${lic.shortDeviceId.isEmpty ? '' : ' (الجهاز ${lic.shortDeviceId})'}',
+                          ),
+                        ),
+                        style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+                        icon: const Icon(Icons.chat_rounded),
+                        label: const Text('اطلب الكود'),
+                      ),
                     ),
-                  ),
-                  style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
-                  icon: const Icon(Icons.chat_rounded),
-                  label: const Text('اطلب الكود من المطوّر (واتساب)'),
-                ),
-                // حتى أثناء القفل يستطيع المستخدم أخذ نسخة من بياناته
-                TextButton.icon(
-                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BackupsScreen())),
-                  icon: const Icon(Icons.cloud_download_outlined),
-                  label: const Text('نسخة احتياطية من بياناتي'),
+                    const SizedBox(width: Space.sm),
+                    Expanded(
+                      flex: 2,
+                      child: OutlinedButton.icon(
+                        onPressed: busy ? null : lic.refresh,
+                        style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('فحص'),
+                      ),
+                    ),
+                  ],
                 ),
                 // معرّف الجهاز: يرسله المستخدم للمطوّر ليجده في لوحة الأجهزة
                 if (st.deviceLocked && lic.shortDeviceId.isNotEmpty)

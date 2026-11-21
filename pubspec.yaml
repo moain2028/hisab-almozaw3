@@ -1,7 +1,7 @@
 name: distributor
 description: "حساب الموزع - توزيع يومي على البقالات، تحصيل ليلي، وحساب التاجر"
 publish_to: 'none'
-version: 2.6.0+260
+version: 2.7.0+270
 
 environment:
   sdk: ^3.9.2

@@ -1,37 +1,41 @@
-/// app_drawer.dart — القائمة الجانبية.
+/// app_drawer.dart — القائمة الجانبية (منذ 2.7.0).
 ///
-/// المبدأ (مثل منظومة الضيافة): **كل وجهة في مكان واحد فقط**.
-///   - الشريط السفلي = عمل اليوم المتكرر (اليوم، البقالات، التاجر، التقارير).
-///   - القائمة الجانبية = البيانات الأساسية والأدوات والإعدادات (أقل تكراراً).
-///   - الإعدادات دائماً في النهاية + زر ⚙ في رأس كل شاشة رئيسية.
+/// المعيار (docs/standards/navigation.md):
+///   - **العرض ≈ نصف الشاشة** (50%، بين 200 و300dp) بدل 80% الافتراضية.
+///   - **بلا تمرير**: 6 وجهات فقط تتسع في أصغر جوال شائع (360×740) حتى بخط كبير.
+///   - **لا تكرار**: اليوم/البقالات/التاجر/التقارير موجودة في الشريط السفلي فلا تُكرَّر هنا،
+///     و«إضافة بقالة» موجودة في الرئيسية.
+///   - ثلاث مجموعات: البيانات (الأصناف، المصاريف) · الحماية (النسخ، التحديث) · النظام (الإعدادات، المطوّر).
 library;
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../core/format.dart';
-import '../core/update_service.dart';
+import '../core/license_service.dart';
 import '../data/store.dart';
 import '../screens/backups_screen.dart';
 import '../screens/developer_screen.dart';
 import '../screens/expenses_screen.dart';
 import '../screens/products_screen.dart';
 import '../screens/settings_screen.dart';
-import '../screens/shop_form.dart';
 import '../screens/update_screen.dart';
 import 'theme.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key, required this.onNavigate, required this.current});
 
-  /// للتنقل إلى تبويب في الشريط السفلي
+  /// للتنقل إلى تبويب في الشريط السفلي (محفوظ للتوافق)
   final ValueChanged<int> onNavigate;
   final int current;
+
+  /// عرض القائمة: نصف الشاشة بين 200 و300
+  static double widthFor(double screen) => (screen * .5).clamp(200.0, 300.0);
 
   @override
   Widget build(BuildContext context) {
     final store = context.watch<Store>();
-    final upd = context.watch<UpdateService>();
+    final lic = context.watch<LicenseService>();
     final cs = Theme.of(context).colorScheme;
 
     void open(Widget page) {
@@ -39,102 +43,85 @@ class AppDrawer extends StatelessWidget {
       Navigator.push(context, MaterialPageRoute(builder: (_) => page));
     }
 
-    void tab(int i) {
-      Navigator.pop(context);
-      onNavigate(i);
-    }
-
     final last = store.lastBackup;
-    final backupSub = last == 0
-        ? 'لم تُحفظ نسخة بعد'
-        : 'آخر نسخة: ${relativeDay(dayKey(DateTime.fromMillisecondsSinceEpoch(last)))}';
+    final backupSub = last == 0 ? 'لا نسخة بعد' : relativeDay(dayKey(DateTime.fromMillisecondsSinceEpoch(last)));
+    final hasUpdate = lic.updateAvailable;
 
-    return NavigationDrawer(
+    return Drawer(
+      width: widthFor(MediaQuery.sizeOf(context).width),
       backgroundColor: cs.surface,
-      selectedIndex: null,
-      tilePadding: const EdgeInsets.symmetric(horizontal: 12),
-      children: [
-        // ---------------- الترويسة
-        Container(
-          margin: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(gradient: heroGradient(cs), borderRadius: BorderRadius.circular(Radii.lg)),
-          child: Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: AppColors.goldMid.withValues(alpha: .18),
-                  borderRadius: BorderRadius.circular(Radii.md),
-                ),
-                child: const Icon(Icons.local_shipping_rounded, color: AppColors.goldLight, size: 26),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      store.distributorName.isEmpty ? 'حساب الموزع' : store.distributorName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: kOnHero, fontWeight: FontWeight.w700, fontSize: 17),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadiusDirectional.horizontal(end: Radius.circular(Radii.xl)),
+      ),
+      child: SafeArea(
+        child: CustomScrollView(
+          // يتسع بلا تمرير على الجوالات الشائعة؛ التمرير احتياط للشاشات الصغيرة جداً فقط
+          physics: const ClampingScrollPhysics(),
+          slivers: [
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // الترويسة: الاسم فقط (العدّادات في الرئيسية)
+                  Container(
+                    margin: const EdgeInsets.fromLTRB(Space.sm, Space.sm, Space.sm, Space.xs),
+                    padding: const EdgeInsets.symmetric(horizontal: Space.md, vertical: Space.md),
+                    decoration: BoxDecoration(
+                      gradient: heroGradient(cs),
+                      borderRadius: BorderRadius.circular(Radii.lg),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${store.shops.length} بقالة · ${store.products.length} صنف',
-                      style: const TextStyle(color: kOnHeroGold, fontSize: 13),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.local_shipping_rounded, color: AppColors.goldLight, size: 24),
+                        const SizedBox(width: Space.sm),
+                        Expanded(
+                          child: Text(
+                            store.distributorName.isEmpty ? 'حساب الموزع' : store.distributorName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(color: kOnHero, fontWeight: FontWeight.w700, fontSize: 16),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                  const _Header('البيانات'),
+                  _Item(Icons.inventory_2_rounded, 'الأصناف', onTap: () => open(const ProductsScreen())),
+                  _Item(Icons.receipt_long_rounded, 'المصاريف', onTap: () => open(const ExpensesScreen())),
+                  const _Header('الحماية'),
+                  _Item(
+                    Icons.cloud_done_rounded,
+                    'النسخ',
+                    sub: backupSub,
+                    warn: last == 0,
+                    onTap: () => open(const BackupsScreen()),
+                  ),
+                  _Item(
+                    Icons.system_update_rounded,
+                    'التحديث',
+                    sub: hasUpdate ? 'متاح ${lic.release.value!.version}' : null,
+                    badge: hasUpdate,
+                    onTap: () => open(const UpdateScreen()),
+                  ),
+                  const _Header('النظام'),
+                  _Item(Icons.settings_rounded, 'الإعدادات', onTap: () => open(const SettingsScreen())),
+                  _Item(Icons.support_agent_rounded, 'المطوّر', onTap: () => open(const DeveloperScreen())),
+                  const Spacer(),
+                  Padding(
+                    padding: const EdgeInsets.all(Space.md),
+                    child: Text(
+                      'الإصدار $kAppVersion',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-
-        const _Header('العمل اليومي'),
-        _Item(Icons.today_rounded, 'اليوم', selected: current == 0, onTap: () => tab(0)),
-        _Item(Icons.storefront_rounded, 'البقالات', selected: current == 1, onTap: () => tab(1)),
-        _Item(Icons.local_shipping_rounded, 'التاجر', selected: current == 2, onTap: () => tab(2)),
-        _Item(Icons.insights_rounded, 'التقارير', selected: current == 3, onTap: () => tab(3)),
-
-        const _Header('البيانات'),
-        _Item(
-          Icons.inventory_2_rounded,
-          'الأصناف والأسعار',
-          sub: '${store.products.length} صنف',
-          onTap: () => open(const ProductsScreen()),
-        ),
-        _Item(Icons.add_business_rounded, 'إضافة بقالة', onTap: () => open(const ShopFormScreen())),
-        _Item(Icons.receipt_long_rounded, 'المصاريف', onTap: () => open(const ExpensesScreen())),
-
-        const _Header('الحماية'),
-        _Item(
-          Icons.cloud_done_rounded,
-          'النسخ الاحتياطي',
-          sub: backupSub,
-          warn: store.lastBackup == 0,
-          onTap: () => open(const BackupsScreen()),
-        ),
-        if (UpdateService.supported)
-          _Item(
-            Icons.system_update_rounded,
-            'تحديث التطبيق',
-            sub: upd.last?.available == true ? 'الإصدار ${upd.last!.info!.version} متاح' : 'فحص التحديثات',
-            badge: upd.last?.available == true,
-            onTap: () => open(const UpdateScreen()),
-          ),
-
-        const Padding(padding: EdgeInsets.fromLTRB(28, 8, 28, 8), child: Divider()),
-        _Item(Icons.settings_rounded, 'الإعدادات', onTap: () => open(const SettingsScreen())),
-        _Item(Icons.support_agent_rounded, 'تواصل مع المطوّر', onTap: () => open(const DeveloperScreen())),
-        const SizedBox(height: 12),
-        Center(
-          child: Text('الإصدار $kAppVersion', style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
-        ),
-        const SizedBox(height: 16),
-      ],
+      ),
     );
   }
 }
@@ -144,82 +131,65 @@ class _Header extends StatelessWidget {
   final String text;
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsetsDirectional.fromSTEB(28, 16, 16, 6),
+    padding: const EdgeInsetsDirectional.fromSTEB(Space.lg + 4, Space.md, Space.md, Space.xs),
     child: Text(
       text,
-      style: TextStyle(
-        fontSize: 12.5,
-        fontWeight: FontWeight.w700,
-        color: Theme.of(context).colorScheme.primary,
-        letterSpacing: .2,
-      ),
+      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.primary),
     ),
   );
 }
 
 class _Item extends StatelessWidget {
-  const _Item(
-    this.icon,
-    this.title, {
-    this.sub,
-    this.onTap,
-    this.selected = false,
-    this.badge = false,
-    this.warn = false,
-  });
+  const _Item(this.icon, this.title, {this.sub, this.onTap, this.badge = false, this.warn = false});
   final IconData icon;
   final String title;
   final String? sub;
   final VoidCallback? onTap;
-  final bool selected;
   final bool badge;
   final bool warn;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final fg = selected ? cs.onSecondaryContainer : cs.onSurface;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 1),
-      child: Material(
-        color: selected ? cs.secondaryContainer : Colors.transparent,
+      padding: const EdgeInsets.symmetric(horizontal: Space.sm),
+      child: InkWell(
         borderRadius: BorderRadius.circular(Radii.pill),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(Radii.pill),
-          onTap: onTap,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 52),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-              child: Row(
-                children: [
-                  Badge(
-                    isLabelVisible: badge,
-                    smallSize: 9,
-                    child: Icon(icon, color: fg, size: 22),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
+        onTap: onTap,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 48),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: Space.md, vertical: 4),
+            child: Row(
+              children: [
+                Badge(
+                  isLabelVisible: badge,
+                  smallSize: 9,
+                  child: Icon(icon, color: cs.onSurface, size: 22),
+                ),
+                const SizedBox(width: Space.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                      ),
+                      if (sub != null)
                         Text(
-                          title,
-                          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: fg),
+                          sub!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 11.5, color: warn ? warnColor(context) : cs.onSurfaceVariant),
                         ),
-                        if (sub != null)
-                          Text(
-                            sub!,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontSize: 12, color: warn ? warnColor(context) : cs.onSurfaceVariant),
-                          ),
-                      ],
-                    ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),

@@ -45,7 +45,24 @@ class _TodayScreenState extends State<TodayScreen> {
       appBar: AppBar(
         leading: const MenuButton(),
         title: Text(store.distributorName.isEmpty ? 'حساب الموزع' : store.distributorName),
-        actions: const [SettingsButton()],
+        actions: [
+          // أول تشغيل (لا بقالات): زر الإضافة في الرأس بدل بطاقة أسفل الصفحة — الصفحة لا تطول ولا تتحرك
+          if (shops.isEmpty)
+            Padding(
+              padding: const EdgeInsetsDirectional.only(end: 4),
+              child: FilledButton.icon(
+                onPressed: () => openShopForm(context),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(0, 40),
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  visualDensity: VisualDensity.compact,
+                ),
+                icon: const Icon(Icons.add_business_rounded, size: 20),
+                label: const Text('بقالة'),
+              ),
+            ),
+          const SettingsButton(),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.only(bottom: Space.xl),
@@ -97,16 +114,6 @@ class _TodayScreenState extends State<TodayScreen> {
               onTap: () => openDayLog(context, night ? DayMode.collect : DayMode.deliver),
             ),
           ),
-          if (shops.isEmpty)
-            EmptyState(
-              icon: Icons.storefront_outlined,
-              text: 'ابدأ بإضافة البقالات التي توزع عليها',
-              action: FilledButton.icon(
-                onPressed: () => openShopForm(context),
-                icon: const Icon(Icons.add),
-                label: const Text('إضافة بقالة'),
-              ),
-            ),
           if (store.products.isNotEmpty && s.picked > 0) ...[
             const SizedBox(height: Space.sm),
             Padding(

@@ -230,6 +230,48 @@ void main() {
       expect(await d.unlock('ABC123'), isTrue);
     });
 
+    test('2.7.0: hwId يُرسل، والمعرّف المعتمد من الخادم يُعتمد (لا تكرار عند إعادة التثبيت)', () async {
+      final h = LicenseService(
+        store,
+        fetcher: f,
+        deviceInfo: () async => {...(await fakeDevice())!, 'hwId': 'abcdef0123456789'},
+      );
+      f.next = lic(true);
+      const canonical = '0123456789abcdef0123456789abcdef0123456789abcdef';
+      f.pingNext = const PingResult(deviceActive: true, canonicalId: canonical);
+      await h.check();
+      expect(f.pings.first['hwId'], 'abcdef0123456789');
+      expect(h.deviceId(), canonical);
+      f.pingNext = const PingResult(deviceActive: true);
+      await h.check();
+      expect(f.pings.last['deviceId'], canonical);
+    });
+
+    test('2.7.0: التحديث مع النبض — عادي وإجباري وموقوف', () async {
+      f.next = lic(true);
+      f.pingNext = const PingResult(deviceActive: true, latest: LatestRelease(version: '2.7.0', build: 270));
+      await d.check();
+      expect(d.updateAvailable, isTrue);
+      expect(d.mandatoryUpdate, isFalse);
+      f.pingNext = const PingResult(
+        deviceActive: true,
+        latest: LatestRelease(version: '2.7.0', build: 270, minSupportedBuild: 260),
+      );
+      await d.check();
+      expect(d.mandatoryUpdate, isTrue, reason: 'المثبّت 250 < أقل مدعوم 260');
+      f.pingNext = const PingResult(
+        deviceActive: true,
+        updateBlocked: true,
+        latest: LatestRelease(version: '2.7.0', build: 270, minSupportedBuild: 260),
+      );
+      await d.check();
+      expect(d.updateAvailable, isFalse, reason: 'إيقاف التحديث من اللوحة يخفي كل شيء');
+      expect(d.mandatoryUpdate, isFalse);
+      f.pingNext = const PingResult(deviceActive: true, latest: LatestRelease(version: '2.5.0', build: 250));
+      await d.check();
+      expect(d.updateAvailable, isFalse, reason: 'نفس الإصدار المثبّت');
+    });
+
     test('الويب/غير أندرويد ⇒ لا نبض', () async {
       final w = LicenseService(store, fetcher: f, deviceInfo: () async => null);
       f.next = lic(true);

@@ -18,6 +18,8 @@ library;
 
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
+
 import 'package:http/http.dart' as http;
 
 class RemoteConfig {
@@ -44,15 +46,57 @@ class RemoteConfig {
 
 /// رد النبض: هل هذا الجهاز مسموح (القفل الفردي من لوحة admin.alabbasi.uk)
 class PingResult {
-  const PingResult({required this.deviceActive, this.message = '', this.commands = const [], this.deviceCode = false});
+  const PingResult({
+    required this.deviceActive,
+    this.message = '',
+    this.commands = const [],
+    this.deviceCode = false,
+    this.appActive = true,
+    this.latest,
+    this.canonicalId,
+    this.updateBlocked = false,
+  });
   final bool deviceActive;
   final String message;
+
+  /// التطبيق كله مفعّل في اللوحة (إيقافه = قفل فوري لكل الأجهزة، يُفتح بالكود العام أو من اللوحة)
+  final bool appActive;
+
+  /// آخر إصدار منشور (منذ 2.7.0): التطبيق يعرف بالتحديث مع كل نبض بلا طلب إضافي
+  final LatestRelease? latest;
+
+  /// المعرّف المعتمد من الخادم (إن كان هذا الجهاز مسجّلاً سابقاً بمعرّف آخر: إعادة تثبيت)
+  final String? canonicalId;
+
+  /// التحديث موقوف لهذا الجهاز أو للكل أو خارج النشر التدريجي
+  final bool updateBlocked;
 
   /// أوامر معلّقة من اللوحة: [{id, type: message|backup, payload}]
   final List<RemoteCommand> commands;
 
   /// المدير أنشأ كوداً لمرة واحدة لهذا الجهاز (يُقبل من شاشة القفل)
   final bool deviceCode;
+}
+
+/// آخر إصدار كما يعلنه النبض. `mandatoryFor(build)` = التحديث إجباري لهذه النسخة.
+@immutable
+class LatestRelease {
+  const LatestRelease({required this.version, required this.build, this.minSupportedBuild = 0, this.notes = ''});
+  final String version;
+  final int build;
+  final int minSupportedBuild;
+  final String notes;
+  bool newerThan(int installed) => build > installed;
+  bool mandatoryFor(int installed) => build > installed && installed < minSupportedBuild;
+  static LatestRelease? tryParse(Object? v) {
+    if (v is! Map || v['build'] is! num || v['version'] is! String) return null;
+    return LatestRelease(
+      version: v['version'] as String,
+      build: (v['build'] as num).toInt(),
+      minSupportedBuild: (v['minSupportedBuild'] as num?)?.toInt() ?? 0,
+      notes: '${v['notes'] ?? ''}',
+    );
+  }
 }
 
 /// أمر من لوحة المنصة (منذ 2.6.0)
@@ -148,6 +192,10 @@ class RemoteFetcher {
         message: '${j['message'] ?? ''}',
         commands: cmds,
         deviceCode: j['deviceCode'] == true,
+        appActive: j['appActive'] != false,
+        latest: LatestRelease.tryParse(j['latest']),
+        canonicalId: j['deviceId'] is String ? j['deviceId'] as String : null,
+        updateBlocked: j['updateBlocked'] == true,
       );
     } catch (_) {
       return null;
