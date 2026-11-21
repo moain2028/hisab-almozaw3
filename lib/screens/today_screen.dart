@@ -207,16 +207,17 @@ class _QuickGrid extends StatelessWidget {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          // مربع ممتلئ بلون الإجراء + أيقونة بيضاء/داكنة حسب السطوع (تباين ≥ 3:1 للأيقونات، WCAG 1.4.11)
+                          // مربع بنفسجي متدرّج + أيقونة ذهبية (مثل أيقونات «كتاب البيت»). الإجراء المميّز ذهبي.
                           Container(
                             width: 40,
                             height: 40,
-                            decoration: BoxDecoration(color: q.color, borderRadius: BorderRadius.circular(Radii.md)),
-                            child: Icon(
-                              q.icon,
-                              size: 22,
-                              color: q.color.computeLuminance() > .4 ? const Color(0xFF10201E) : Colors.white,
+                            decoration: BoxDecoration(
+                              gradient: q.highlight
+                                  ? goldGradient
+                                  : const LinearGradient(colors: [Color(0xFF7A1844), AppColors.plum2]),
+                              borderRadius: BorderRadius.circular(Radii.md),
                             ),
+                            child: Icon(q.icon, size: 22, color: q.highlight ? kOnGold : AppColors.goldLight),
                           ),
                           const SizedBox(height: Space.xs),
                           Text(

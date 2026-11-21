@@ -30,11 +30,20 @@ class HeroCard extends StatelessWidget {
     final base = s.collected + (s.remainingEndOfDay > 0 ? s.remainingEndOfDay : 0);
     final progress = base <= 0 ? 0.0 : (s.collected / base).clamp(0.0, 1.0);
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16), // 16 + حدّ ذهبي 1px (الرئيسية بلا تمرير على 360×740)
       decoration: BoxDecoration(
         gradient: heroGradient(cs),
         borderRadius: BorderRadius.circular(Radii.lg),
-        boxShadow: [BoxShadow(color: cs.primary.withValues(alpha: .25), blurRadius: 18, offset: const Offset(0, 8))],
+        // حدّ ذهبي رفيع + ظل بنفسجي (--glow في المرجع)
+        border: Border.all(color: AppColors.goldDeep.withValues(alpha: .45)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: .35),
+            blurRadius: 30,
+            offset: const Offset(0, 12),
+            spreadRadius: -12,
+          ),
+        ],
       ),
       // merge وليس DefaultTextStyle(...): الأخير يستبدل النمط كاملاً فيضيع خط التطبيق
       child: DefaultTextStyle.merge(
@@ -42,9 +51,9 @@ class HeroCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
+            const Text(
               'الباقي عند البقالات',
-              style: TextStyle(color: kOnHero.withValues(alpha: 0.85), fontWeight: FontWeight.w600),
+              style: TextStyle(color: kOnHeroGold, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 2),
             FittedBox(
@@ -58,8 +67,8 @@ class HeroCard extends StatelessWidget {
               child: LinearProgressIndicator(
                 value: progress.toDouble(),
                 minHeight: 7,
-                backgroundColor: kOnHero.withValues(alpha: 0.2),
-                valueColor: const AlwaysStoppedAnimation(kOnHero),
+                backgroundColor: kOnHero.withValues(alpha: 0.15),
+                valueColor: const AlwaysStoppedAnimation(AppColors.goldMid),
               ),
             ),
             const SizedBox(height: 12),
@@ -89,14 +98,14 @@ class HeroCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(icon, size: 14, color: on.withValues(alpha: 0.8)),
+              Icon(icon, size: 14, color: kOnHeroGold),
               const SizedBox(width: 3),
               Flexible(
                 child: Text(
                   label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 12.5, color: on.withValues(alpha: 0.85)),
+                  style: const TextStyle(fontSize: 12.5, color: kOnHeroGold),
                 ),
               ),
             ],

@@ -31,8 +31,8 @@ class DeveloperScreen extends StatelessWidget {
               children: [
                 CircleAvatar(
                   radius: 34,
-                  backgroundColor: kOnHero.withValues(alpha: .15),
-                  child: const Icon(Icons.code_rounded, size: 34, color: kOnHero),
+                  backgroundColor: AppColors.goldMid.withValues(alpha: .18),
+                  child: const Icon(Icons.code_rounded, size: 34, color: AppColors.goldLight),
                 ),
                 const SizedBox(height: Space.md),
                 const Text(
@@ -40,7 +40,7 @@ class DeveloperScreen extends StatelessWidget {
                   style: TextStyle(color: kOnHero, fontWeight: FontWeight.w700, fontSize: 20),
                 ),
                 const SizedBox(height: Space.xs),
-                Text('تطوير وتصميم «حساب الموزع»', style: TextStyle(color: kOnHero.withValues(alpha: .85))),
+                const Text('تطوير وتصميم «حساب الموزع»', style: TextStyle(color: kOnHeroGold)),
               ],
             ),
           ),

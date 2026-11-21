@@ -47,6 +47,15 @@ android {
     }
 
     // التطبيق عربي: نحذف ترجمات مكتبات AndroidX للّغات الأخرى (≈ 150–250 ك.ب)
+    // APK مضغوط للتنزيل (2.4.0، طلب المستخدم): المكتبات الأصلية (محرك Flutter + كود التطبيق) تُضغط داخل
+    // الـ APK، ومثبّت أندرويد يفكّها مرة واحدة عند التثبيت. الثمن: المساحة على الجوال ≈ APK + المكتبات
+    // المفكوكة. القياسات والقرار في docs/adr/0012-compressed-native-libs.md
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
+
     androidResources {
         localeFilters += listOf("ar", "en")
     }

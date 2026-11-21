@@ -114,7 +114,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text('صافي الربح', style: TextStyle(color: kOnHero.withValues(alpha: .85))),
+                                  const Text('صافي الربح', style: TextStyle(color: kOnHeroGold)),
                                   FittedBox(
                                     fit: BoxFit.scaleDown,
                                     alignment: AlignmentDirectional.centerStart,
@@ -125,7 +125,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                     'مبيعات ${money(r.netSales)} · مصاريف ${money(r.expenses)}',
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(color: kOnHero.withValues(alpha: .85), fontSize: 13),
+                                    style: const TextStyle(color: kOnHeroGold, fontSize: 13),
                                   ),
                                 ],
                               ),

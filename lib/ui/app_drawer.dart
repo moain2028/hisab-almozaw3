@@ -65,10 +65,10 @@ class AppDrawer extends StatelessWidget {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: kOnHero.withValues(alpha: .15),
+                  color: AppColors.goldMid.withValues(alpha: .18),
                   borderRadius: BorderRadius.circular(Radii.md),
                 ),
-                child: const Icon(Icons.local_shipping_rounded, color: kOnHero, size: 26),
+                child: const Icon(Icons.local_shipping_rounded, color: AppColors.goldLight, size: 26),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -84,7 +84,7 @@ class AppDrawer extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       '${store.shops.length} بقالة · ${store.products.length} صنف',
-                      style: TextStyle(color: kOnHero.withValues(alpha: .8), fontSize: 13),
+                      style: const TextStyle(color: kOnHeroGold, fontSize: 13),
                     ),
                   ],
                 ),
