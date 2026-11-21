@@ -172,7 +172,9 @@ class _ScanError extends StatelessWidget {
               Text(
                 denied
                     ? 'لم يُسمح باستخدام الكاميرا.\nفعّل الإذن من إعدادات الجوال، أو أدخل الرقم يدوياً.'
-                    : 'تعذّر تشغيل الكاميرا على هذا الجهاز.\nيمكنك إدخال رقم الباركود يدوياً.',
+                    : 'تعذّر تشغيل الماسح على هذا الجهاز.\n'
+                          'يحتاج خدمات Google Play (وإنترنت لأول مرة فقط لتنزيل الماسح).\n'
+                          'يمكنك إدخال رقم الباركود يدوياً.',
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: Colors.white, fontSize: 15, height: 1.6),
               ),

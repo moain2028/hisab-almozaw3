@@ -45,6 +45,11 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/update_paths" />
         </provider>
+        <!-- ماسح الباركود عبر Google Play Services (2.3.0): اطلب تنزيل نموذج الباركود مبكراً
+             بدلاً من أول فتح للكاميرا. انظر docs/adr/0010-unbundled-barcode.md -->
+        <meta-data
+            android:name="com.google.mlkit.vision.DEPENDENCIES"
+            android:value="barcode" />
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
