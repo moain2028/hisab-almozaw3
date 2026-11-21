@@ -3,6 +3,7 @@
 // يطبع تقريراً ويفشل عند أي overflow (أهداف اللمس تُطبع للمراجعة).
 import 'dart:io';
 
+import 'package:distributor/core/command_service.dart';
 import 'package:distributor/core/license_service.dart';
 import 'package:distributor/core/remote_config.dart';
 import 'package:distributor/core/update_service.dart';
@@ -22,7 +23,7 @@ const sizes = {'صغير 320×568': Size(320, 568), 'شائع 360×740': Size(36
 /// خادم وهمي: الترخيص مفعّل، بدون شبكة حقيقية
 class _FakeFetcher extends RemoteFetcher {
   @override
-  Future<RemoteFile?> fetch(String file) async =>
+  Future<RemoteFile?> fetch(String file, {String? deviceId}) async =>
       file == 'license.json' ? RemoteFile.ok({'active': true, 'code': 'X', 'message': ''}) : null;
 }
 
@@ -116,6 +117,7 @@ void main() {
                   ChangeNotifierProvider.value(value: store),
                   Provider.value(value: BackupService(store)),
                   ChangeNotifierProvider(create: (_) => LicenseService(store, fetcher: _FakeFetcher())),
+                  Provider(create: (c) => CommandService(store, c.read<LicenseService>())),
                   ChangeNotifierProvider(create: (_) => UpdateService(store, fetcher: _FakeFetcher())),
                 ],
                 child: const DistributorApp(),

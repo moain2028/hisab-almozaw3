@@ -83,7 +83,15 @@ class LicenseService extends ChangeNotifier {
   static const _kSeen = 'lic_seen';
   static const _kLastCheck = 'lic_last_check';
   static const _kDevBlocked = 'dev_blocked';
+  static const _kDevCode = 'dev_code';
   static const kDeviceId = 'device_id';
+
+  /// أوامر وصلت مع آخر نبض (تعالجها CommandService)
+  final ValueNotifier<List<RemoteCommand>> commands = ValueNotifier(const []);
+  bool _deviceCode = false;
+
+  /// المدير أنشأ كود تفعيل لهذا الجهاز تحديداً (يظهر حقل الكود في شاشة القفل)
+  bool get deviceCodeAvailable => _deviceCode || (store.meta<bool>(_kDevCode) ?? false);
 
   LicenseState? _state;
   DateTime? _lastCheck;
@@ -147,7 +155,14 @@ class LicenseService extends ChangeNotifier {
     if (!UpdateService.supported) return null;
     final i = await UpdateService.installed();
     if (i == null) return null;
-    return {'version': i.versionName, 'build': i.build, 'abi': i.abi, 'sdk': i.sdkInt, 'model': i.model};
+    return {
+      'version': i.versionName,
+      'build': i.build,
+      'abi': i.abi,
+      'sdk': i.sdkInt,
+      'model': i.model,
+      if (i.deviceName.isNotEmpty) 'deviceName': i.deviceName,
+    };
   }
 
   Future<PingResult?> _ping() async {
@@ -165,7 +180,11 @@ class LicenseService extends ChangeNotifier {
     final r = await Future.wait<Object?>([fetcher.fetch(file), _ping()]);
     final base = await _checkLicense(r[0] as RemoteFile?);
     final p = r[1] as PingResult?;
-    if (p != null) await _put({_kDevBlocked: !p.deviceActive});
+    if (p != null) {
+      _deviceCode = p.deviceCode;
+      await _put({_kDevBlocked: !p.deviceActive, _kDevCode: p.deviceCode});
+      if (p.commands.isNotEmpty) commands.value = p.commands;
+    }
     return _withDevice(base);
   }
 
@@ -174,7 +193,7 @@ class LicenseService extends ChangeNotifier {
     return LicenseState(
       allowed: false,
       message: deviceLockedMessage,
-      codeAccepted: false,
+      codeAccepted: deviceCodeAvailable,
       offline: base.offline,
       deviceLocked: true,
     );
@@ -209,7 +228,17 @@ class LicenseService extends ChangeNotifier {
 
   /// إدخال كود التفعيل. يتحقق مقابل الملف الحي إن أمكن، وإلا آخر كود معروف.
   Future<bool> unlock(String input) async {
-    if (store.meta<bool>(_kDevBlocked) == true) return false;
+    // جهاز مقفول من اللوحة: يُقبل فقط كود هذا الجهاز (لمرة واحدة) ويتحقق منه الخادم
+    if (store.meta<bool>(_kDevBlocked) == true) {
+      if (input.trim().isEmpty) return false;
+      final r = await fetcher.post('activate', {'deviceId': deviceId(), 'code': input.trim()});
+      if (r == null || r['ok'] != true) return false;
+      await _put({_kDevBlocked: false, _kDevCode: false});
+      _deviceCode = false;
+      _state = await check();
+      notifyListeners();
+      return _state!.allowed;
+    }
     final remote = await fetcher.fetch(file);
     if (remote != null && remote.notFound) return false;
     if (remote?.data != null) {

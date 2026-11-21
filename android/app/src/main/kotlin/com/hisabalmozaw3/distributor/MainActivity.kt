@@ -12,7 +12,7 @@ import java.io.File
 
 /**
  * قناة app.update — التحديث من داخل التطبيق (UpdateService في Dart):
- *   info                -> { versionCode, versionName, abi, nativeLibDir, sdkInt, model }
+ *   info                -> { versionCode, versionName, abi, nativeLibDir, sdkInt, model, deviceName }
  *   canInstall          -> هل يُسمح بتثبيت حزم من مصادر غير معروفة (أندرويد 8+)
  *   openInstallSettings -> يفتح شاشة "تثبيت تطبيقات غير معروفة" لهذا التطبيق
  *   install(path)       -> يفتح مثبّت النظام على APK داخل cache/updates (FileProvider)
@@ -36,6 +36,8 @@ class MainActivity : FlutterActivity() {
                             "sdkInt" to Build.VERSION.SDK_INT,
                             // للوحة الأجهزة فقط (admin.alabbasi.uk)
                             "model" to "${Build.MANUFACTURER} ${Build.MODEL}".trim(),
+                            // الاسم الذي سمّاه المستخدم (الإعدادات ← حول الهاتف ← اسم الجهاز). لا يحتاج أي إذن.
+                            "deviceName" to deviceName(),
                         ))
                     }
                     "canInstall" -> result.success(canInstall())
@@ -61,6 +63,25 @@ class MainActivity : FlutterActivity() {
                 result.error("update", e.message, null)
             }
         }
+    }
+
+    /**
+     * اسم الجهاز بلا أذونات:
+     * 1) Settings.Global.DEVICE_NAME (أندرويد 7.1+، ما يكتبه المستخدم في «حول الهاتف»)
+     * 2) Settings.Secure "bluetooth_name" (اسم البلوتوث الظاهر للآخرين؛ متاح للقراءة على أغلب الأجهزة)
+     * لا نستخدم BluetoothAdapter.getName() لأنه يتطلب BLUETOOTH_CONNECT على أندرويد 12+.
+     */
+    private fun deviceName(): String {
+        val keys = listOf(
+            { Settings.Global.getString(contentResolver, "device_name") },
+            { Settings.Secure.getString(contentResolver, "bluetooth_name") },
+            { Settings.System.getString(contentResolver, "device_name") },
+        )
+        for (k in keys) {
+            val v = try { k() } catch (_: Exception) { null }
+            if (!v.isNullOrBlank()) return v.trim().take(80)
+        }
+        return ""
     }
 
     private fun canInstall(): Boolean =

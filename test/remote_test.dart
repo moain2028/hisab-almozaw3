@@ -19,7 +19,7 @@ class FakeFetcher extends RemoteFetcher {
   PingResult? pingNext;
   final pings = <Map<String, Object?>>[];
   @override
-  Future<RemoteFile?> fetch(String file) async {
+  Future<RemoteFile?> fetch(String file, {String? deviceId}) async {
     calls++;
     return next;
   }
@@ -314,7 +314,7 @@ void main() {
 
 class _SlowFetcher extends RemoteFetcher {
   @override
-  Future<RemoteFile?> fetch(String file) async {
+  Future<RemoteFile?> fetch(String file, {String? deviceId}) async {
     await Future<void>.delayed(const Duration(seconds: 3));
     return null;
   }

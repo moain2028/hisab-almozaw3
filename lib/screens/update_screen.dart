@@ -187,14 +187,14 @@ class _UpdateScreenState extends State<UpdateScreen> with WidgetsBindingObserver
           const SizedBox(height: Space.md),
           Text(
             '• التحديث يُثبَّت فوق التطبيق الحالي، والبيانات تبقى كما هي.\n'
-            '• يُرفض أي ملف لا تطابق بصمته (SHA-256) البصمة المنشورة.\n'
+            '• يُتحقق من سلامة الملف تلقائياً قبل التثبيت.\n'
             '• يُفحص تلقائياً مرة كل يوم.',
             style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12.5, height: 1.7),
           ),
           TextButton.icon(
-            onPressed: () => launchUrl(RemoteConfig.releasesPage, mode: LaunchMode.externalApplication),
+            onPressed: () => launchUrl(RemoteConfig.downloadsPage, mode: LaunchMode.externalApplication),
             icon: const Icon(Icons.open_in_new, size: 18),
-            label: const Text('صفحة الإصدارات'),
+            label: const Text('صفحة التنزيل'),
           ),
         ],
       ),

@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
+import 'core/command_service.dart';
 import 'core/license_service.dart';
 import 'core/update_service.dart';
 import 'data/backup_service.dart';
@@ -56,6 +57,8 @@ Future<void> main() async {
   final license = LicenseService(store);
   await license.init();
   final updates = UpdateService(store);
+  // أوامر لوحة المنصة (إشعارات + سحب نسخة احتياطية) — منذ 2.6.0
+  final commands = CommandService(store, license);
 
   WidgetsBinding.instance.addObserver(_Lifecycle(backup, license));
   // بعد أول إطار حتى لا تبطئ الإقلاع: نسخة احتياطية إن لزم + تنظيف ملفات تحديث قديمة
@@ -73,6 +76,7 @@ Future<void> main() async {
         Provider.value(value: backup),
         ChangeNotifierProvider.value(value: license),
         ChangeNotifierProvider.value(value: updates),
+        Provider.value(value: commands),
       ],
       child: const DistributorApp(),
     ),
@@ -148,6 +152,37 @@ class _HomeShellState extends State<HomeShell> {
       final r = await context.read<UpdateService>().autoCheck();
       if (r != null && mounted) await showUpdateDialog(context, r);
     });
+    // رسائل لوحة المنصة: تظهر كحوار واحد في كل مرة
+    _inbox = context.read<CommandService>().inbox..addListener(_showInbox);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _showInbox());
+  }
+
+  late final ValueNotifier<List<InboxMessage>> _inbox;
+  bool _showingMsg = false;
+
+  Future<void> _showInbox() async {
+    if (_showingMsg || !mounted || _inbox.value.isEmpty) return;
+    _showingMsg = true;
+    final m = _inbox.value.first;
+    final cmds = context.read<CommandService>();
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.campaign_rounded),
+        title: Text(m.title.isEmpty ? 'رسالة من المطوّر' : m.title),
+        content: m.body.isEmpty ? null : SingleChildScrollView(child: Text(m.body)),
+        actions: [FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('حسناً'))],
+      ),
+    );
+    await cmds.dismiss(m);
+    _showingMsg = false;
+    if (mounted) unawaited(_showInbox());
+  }
+
+  @override
+  void dispose() {
+    _inbox.removeListener(_showInbox);
+    super.dispose();
   }
 
   void _go(int i) {

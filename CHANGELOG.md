@@ -1,6 +1,17 @@
 # Changelog
 الصيغة: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · الإصدارات: [SemVer](https://semver.org/)
 
+## 2.6.0 — 2026-11-22
+### جديد (تحكّم من منصة admin.alabbasi.uk)
+- **اسم الجهاز** يُرسل مع النبض: `Settings.Global.device_name` ← `Settings.Secure.bluetooth_name` ← `Settings.System.device_name` (بلا أي صلاحية).
+- **أوامر عن بُعد** (`lib/core/command_service.dart`): `message` ⇒ نافذة إشعار داخل التطبيق، `backup` ⇒ رفع نسخة احتياطية مشفّرة (≤1.4MB) إلى `POST /v1/apps/{id}/backup`. كل أمر يُؤكَّد (`ack`) ولا يُنفّذ مرتين (`cmd_done` آخر 200).
+- **كود تفعيل لكل جهاز** يصدر من اللوحة ويُتحقق منه في الخادم (`POST /activate`) — يفتح الجهاز المقفول دون كشف الكود العام.
+- **إيقاف التحديث لجهاز/للكل ونشر تدريجي**: طلب `update.json` يحمل `?device=`.
+### تغيّر
+- لا روابط GitHub ولا SHA في الواجهة؛ زر «صفحة التنزيل» يفتح `downloads.alabbasi.uk`.
+### اختبارات
+- `command_test` (8). المجموع 79 · analyze = 0.
+
 ## 2.5.0 — 2026-11-21
 ### جديد
 - **القفل لكل جهاز** من لوحة المنصة `admin.alabbasi.uk`: كل تشغيل/عودة يرسل نبضاً (`POST api.alabbasi.uk/v1/apps/hisab-almozaw3/ping`) بمعرّف عشوائي ثابت (48 hex، لا IMEI). الجهاز المقفول لا يُفتح بالكود، بل من اللوحة فقط.

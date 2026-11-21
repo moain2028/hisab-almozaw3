@@ -37,15 +37,41 @@ class RemoteConfig {
       Uri.https('api.github.com', '/repos/$owner/$repo/contents/$folder/$file', {'ref': branch});
   static Uri rawUri(String file) => Uri.https('raw.githubusercontent.com', '/$owner/$repo/$branch/$folder/$file');
 
-  /// صفحة الإصدارات (لزر "فتح في المتصفح")
-  static Uri get releasesPage => Uri.https('github.com', '/$owner/$repo/releases/latest');
+  /// صفحة التطبيق للعملاء (على الدومين؛ لا روابط GitHub في الواجهة أبداً)
+  static Uri get downloadsPage => Uri.https('downloads.alabbasi.uk', '/app/$appId');
+  static Uri platformPath(String path) => Uri.https(platformHost, '/v1/apps/$appId/$path');
 }
 
 /// رد النبض: هل هذا الجهاز مسموح (القفل الفردي من لوحة admin.alabbasi.uk)
 class PingResult {
-  const PingResult({required this.deviceActive, this.message = ''});
+  const PingResult({required this.deviceActive, this.message = '', this.commands = const [], this.deviceCode = false});
   final bool deviceActive;
   final String message;
+
+  /// أوامر معلّقة من اللوحة: [{id, type: message|backup, payload}]
+  final List<RemoteCommand> commands;
+
+  /// المدير أنشأ كوداً لمرة واحدة لهذا الجهاز (يُقبل من شاشة القفل)
+  final bool deviceCode;
+}
+
+/// أمر من لوحة المنصة (منذ 2.6.0)
+class RemoteCommand {
+  const RemoteCommand(this.id, this.type, this.payload);
+  final int id;
+  final String type;
+  final Map<String, dynamic> payload;
+  static RemoteCommand? tryParse(Object? v) {
+    if (v is! Map) return null;
+    final id = v['id'];
+    if (id is! num || v['type'] is! String) return null;
+    final p = v['payload'];
+    return RemoteCommand(
+      id.toInt(),
+      v['type'] as String,
+      p is Map ? Map<String, dynamic>.from(p) : <String, dynamic>{},
+    );
+  }
 }
 
 /// نتيجة جلب ملف عن بُعد
@@ -66,12 +92,15 @@ class RemoteFetcher {
   static const _noCache = {'Cache-Control': 'no-cache, no-store, max-age=0', 'Pragma': 'no-cache'};
   static const timeout = Duration(seconds: 8);
 
-  Future<RemoteFile?> fetch(String file) async {
-    // 0) منصة النشر
+  Future<RemoteFile?> fetch(String file, {String? deviceId}) async {
+    // 0) منصة النشر (?device= يطبّق إيقاف التحديث والنشر التدريجي لهذا الجهاز)
     try {
-      final u = RemoteConfig.platformUri(
-        file,
-      ).replace(queryParameters: {'t': '${DateTime.now().millisecondsSinceEpoch}'});
+      final u = RemoteConfig.platformUri(file).replace(
+        queryParameters: {
+          't': '${DateTime.now().millisecondsSinceEpoch}',
+          if (deviceId != null && deviceId.isNotEmpty) 'device': deviceId,
+        },
+      );
       final res = await client.get(u, headers: _noCache).timeout(timeout);
       if (res.statusCode == 200) return RemoteFile.ok(_obj(utf8.decode(res.bodyBytes)));
     } catch (_) {
@@ -112,7 +141,27 @@ class RemoteFetcher {
       final j = _obj(utf8.decode(res.bodyBytes));
       final dev = j['deviceActive'];
       if (dev is! bool) return null;
-      return PingResult(deviceActive: dev, message: '${j['message'] ?? ''}');
+      final raw = j['commands'];
+      final cmds = (raw is List ? raw : const []).map(RemoteCommand.tryParse).whereType<RemoteCommand>().toList();
+      return PingResult(
+        deviceActive: dev,
+        message: '${j['message'] ?? ''}',
+        commands: cmds,
+        deviceCode: j['deviceCode'] == true,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// POST JSON إلى المنصة. يُرجع الرد أو null (شبكة/خطأ). لا يرمي استثناءات.
+  Future<Map<String, dynamic>?> post(String path, Map<String, Object?> body, {Duration? wait}) async {
+    try {
+      final res = await client
+          .post(RemoteConfig.platformPath(path), headers: {'content-type': 'application/json'}, body: jsonEncode(body))
+          .timeout(wait ?? timeout);
+      if (res.statusCode != 200) return null;
+      return _obj(utf8.decode(res.bodyBytes));
     } catch (_) {
       return null;
     }

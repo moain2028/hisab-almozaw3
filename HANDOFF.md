@@ -1,13 +1,13 @@
 # HANDOFF — تسليم العمل لجلسة/وكيل جديد
 
-> **اقرأ هذا الملف أولاً.** آخر تحديث: نهاية جلسة 2.3.0 (عمل غير مكتمل — مرفوع كما هو).
+> **اقرأ هذا الملف أولاً.** آخر تحديث: 2.6.0.
 
 ## 0) الحالة بسطر واحد
-**2.4.0 منشور**: هوية بنفسجي/ذهبي (مثل «كتاب البيت»)، APK مضغوط arm64 **9.1MB** / armv7 **8.8MB** (يُفك عند التثبيت، ADR 0012). analyze = 0 · test = 57.
-مسار التحديث مُتحقَّق بكود 2.2.0 نفسه مقابل update.json الحي (متاح + HTTP 200 + SHA مطابق).
-صفحة التنزيلات (بالهوية الجديدة): https://moain2028.github.io/hisab-almozaw3-dist/ (فرع gh-pages).
-**البناء الآن خطوتان:** `flutter build apk --release --split-per-abi --target-platform android-arm,android-arm64 --split-debug-info=build/symbols` ثم `python3 tool/zopfli_apk.py IN OUT --ks android/release-key.jks --props android/key.properties` لكل ملف.
-التالي: لوحة الأجهزة (ADR 0011) — تنتظر Cloudflare API Token + Account ID.
+**2.6.0**: التطبيق مربوط بمنصة النشر `moain2028/alabbasi-publish` (خاص): نبض + قفل لكل جهاز + اسم الجهاز + إشعارات + سحب نسخة احتياطية + كود تفعيل لكل جهاز + إيقاف تحديث/نشر تدريجي. analyze = 0 · test = 79.
+- اللوحة: https://admin.alabbasi.uk · API: https://api.alabbasi.uk · التنزيل: https://downloads.alabbasi.uk (لا GitHub أمام العميل).
+- **النشر:** `~/repos/alabbasi-publish/scripts/release-flutter.sh hisab-almozaw3 ~/flutter_app moain2028/hisab-almozaw3-dist "ملاحظات"` (يبني، Zopfli، يوقّع، يرفع، يحدّث المنصة والرموز).
+- كل تفاصيل المنصة وميزاتها ومساراتها: `alabbasi-publish/docs/features.md` و`docs/app-integration.md`.
+- الدروس: `LESSONS.md` (اقرأه قبل أي تعديل).
 
 ## 1) المشروع
 - تطبيق Flutter **أندرويد فقط** (حُذفت ios/linux/macos/windows في 2.3.0؛ مجلد `web/` باقٍ للمعاينة فقط).

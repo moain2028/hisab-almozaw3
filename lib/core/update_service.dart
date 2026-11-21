@@ -103,6 +103,7 @@ class InstalledInfo {
     required this.abi,
     this.sdkInt = 0,
     this.model = '',
+    this.deviceName = '',
   });
   final int versionCode;
   final String versionName;
@@ -111,6 +112,9 @@ class InstalledInfo {
 
   /// الشركة والموديل (للوحة الأجهزة فقط)
   final String model;
+
+  /// الاسم الذي سمّى به المستخدم جهازه (الإعدادات ← حول الهاتف، أو اسم البلوتوث)
+  final String deviceName;
 
   /// رقم البناء N من versionCode (Flutter split-per-abi: 1000×ABI + N)
   int get build => versionCode % 1000;
@@ -172,6 +176,7 @@ class UpdateService extends ChangeNotifier {
         abi: abiKey('${m['nativeLibDir'] ?? ''}', '${m['abi'] ?? ''}'),
         sdkInt: (m['sdkInt'] as num?)?.toInt() ?? 0,
         model: '${m['model'] ?? ''}',
+        deviceName: '${m['deviceName'] ?? ''}'.trim(),
       );
     } catch (_) {
       return null;
@@ -219,7 +224,7 @@ class UpdateService extends ChangeNotifier {
     notifyListeners();
     try {
       final inst = await installed();
-      final remote = await fetcher.fetch(file);
+      final remote = await fetcher.fetch(file, deviceId: store.meta<String>('device_id'));
       if (remote == null || remote.notFound) {
         last = UpdateCheck(UpdateStatus.offline, installed: inst, message: 'لا يمكن الوصول لخادم التحديث الآن');
       } else {
