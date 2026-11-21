@@ -61,3 +61,11 @@ python3 tool/make_update_json.py --help         # توليد update.json
 
 ## 7) أمان — مطلوب من المستخدم
 - **ألغِ** GitHub token `ghp_GmLM…` و Cloudflare key `db12…` — كلاهما ظهر في المحادثة.
+
+## منصة النشر (2026-11-21)
+النشر والتحديث والترخيص والتحكم بالأجهزة لكل التطبيقات صار عبر المستودع الخاص **[moain2028/alabbasi-publish](https://github.com/moain2028/alabbasi-publish)** («صفحة المنشورات»):
+- `https://api.alabbasi.uk/v1/apps/hisab-almozaw3/{update.json,license.json,ping}`
+- لوحة الأجهزة: `https://admin.alabbasi.uk` (Access OTP) · التنزيلات: `https://downloads.alabbasi.uk`
+- كل الأسرار (Cloudflare، ADMIN_TOKEN، مفتاح توقيع هذا التطبيق وكود الترخيص) في `alabbasi-publish/secrets/`.
+- **حتى 2.5.0**: النسخ المثبّتة تقرأ من `hisab-almozaw3-dist`، لذا حدّث المكانين في كل إصدار (راجع `docs/publish-new-app.md` §ج هناك).
+- التالي (2.5.0): `RemoteConfig` يقرأ من api.alabbasi.uk أولاً وGitHub احتياطياً، ويرسل نبضاً بـ deviceId محفوظ (راجع `docs/app-integration.md`).
