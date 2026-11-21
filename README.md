@@ -14,25 +14,16 @@
 ---
 
 
-## الإصدار 2.2.0 — الجديد
-- قائمة جانبية منظمة + زر ⚙ للإعدادات (حُذف «المزيد»).
-- إضافة صنف جديد بشاشة كاملة + **باركود بكاميرا الجوال**.
-- **ترخيص وتحديث عن بعد** عبر [hisab-almozaw3-dist](https://github.com/moain2028/hisab-almozaw3-dist) — الكود السري ومفتاح التوقيع في مستودع خاص.
-- تدقيق واجهة آلي (0 تجاوز حدود على 6 مقاسات) — [التقرير](docs/design/ui-audit-2.2.0.md).
-- تحليل ذاكرة وحجم مقاس — [التقرير](docs/design/memory-apk-2.2.0.md).
-
+## الإصدار الحالي: 2.7.0
 ### تنزيل
-| الجوال | الملف |
-|---|---|
-| معظم الجوالات الحديثة | [arm64 (26.6MB)](https://github.com/moain2028/hisab-almozaw3-dist/releases/download/v2.2.0/hisab-almozaw3-2.2.0-arm64.apk) |
-| الجوالات القديمة | [armv7 (22.6MB)](https://github.com/moain2028/hisab-almozaw3-dist/releases/download/v2.2.0/hisab-almozaw3-2.2.0-armv7.apk) |
+للعملاء فقط: **https://downloads.alabbasi.uk/hisab-almozaw3** (ممنوع إعطاء روابط GitHub).
 
-### المنظومة (3 مستودعات)
+### المنظومة (مستودع واحد للتطبيق)
 | المستودع | الرؤية | المحتوى |
 |---|---|---|
-| hisab-almozaw3 | عام | الكود + التوثيق |
-| hisab-almozaw3-dist | عام | license.json (هاش فقط) + update.json + APK |
-| hisab-almozaw3-secrets | **خاص** | مفتاح التوقيع + كود الترخيص |
+| `moain2028/hisab-almozaw3` (هذا) | عام | الكود + التوثيق + ملفات APK في Releases + `remote/{update,license}.json` الاحتياطي |
+| `moain2028/alabbasi-publish` | **خاص** | المنصة (Worker + لوحة الإدارة + صفحة التنزيلات) + الأسرار + مفتاح التوقيع |
+| `moain2028/null` | — | كان `hisab-almozaw3-dist`؛ أُفرغ وأُعيدت تسميته في 2026-11-22 |
 
 ## المشكلة التي يحلها
 
